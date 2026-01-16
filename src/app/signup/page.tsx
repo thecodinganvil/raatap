@@ -143,7 +143,7 @@ export default function Signup() {
             {/* Terms & Conditions */}
             <div className="pt-2">
               <p className="text-xs text-center text-gray-500 leading-relaxed">
-                By signing up, you agree to receive OTP via WhatsApp and accept our{" "}
+                By signing up, you agree to receive OTP via mail and accept our{" "}
                 <Link href="/terms_&_conditions" className="text-[#6675FF] font-medium hover:underline">
                   Terms and Conditions
                 </Link>
