@@ -13,14 +13,14 @@ export default function Header() {
             <div className="absolute -inset-2 bg-gradient-to-r from-[#6675FF]/20 to-[#8892ff]/20 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <Image
               src="/favicon.png"
-              alt="Rataap Logo"
+              alt="Raatap Logo"
               width={42}
               height={42}
               className="relative w-10 h-10 md:w-11 md:h-11 object-contain drop-shadow-sm"
             />
           </div>
           <span className="text-2xl md:text-3xl font-medium tracking-tight bg-gradient-to-r from-[#171717] to-[#3a3a3a] bg-clip-text text-transparent">
-            Rataap
+            Raatap
           </span>
         </Link>
 

@@ -19,7 +19,7 @@ export default function Login() {
         
         {/* Brand Name */}
         <h1 className="text-3xl md:text-4xl font-medium text-center text-[#171717] mb-10">
-          Rataap
+          Raatap
         </h1>
         
         {/* Form Container */}
