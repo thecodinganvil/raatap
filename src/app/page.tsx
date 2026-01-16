@@ -25,23 +25,24 @@ export default function Home() {
             
             {/* CTA Buttons */}
             <div className="flex flex-wrap items-center gap-4 mt-10">
-              {/* Pick friend - Outlined Button */}
+              {/* Login - Outlined Button */}
               <Link 
-                href="/pick-friend"
+                href="/login"
                 className="group relative px-8 py-3.5 rounded-full font-medium text-base transition-all duration-300 border-2 border-gray-300 text-gray-700 hover:border-[#6675FF] hover:text-[#6675FF] hover:shadow-lg hover:shadow-[#6675FF]/10"
               >
-                Pick friend
+                Login
               </Link>
               
-              {/* Search friend - Filled Button */}
+              {/* Sign Up - Filled Button */}
               <Link 
-                href="/search-friend"
-                className="group relative px-8 py-3.5 rounded-full font-medium text-base transition-all duration-300 bg-[#6675FF] text-white hover:bg-[#5563e8] hover:shadow-lg hover:shadow-[#6675FF]/30 hover:-translate-y-0.5"
+                href="/signup"
+                className="group relative px-8 py-3.5 rounded-full font-medium text-base transition-all duration-300 bg-[#6675FF] text-white hover:bg-[#5563e8] hover:shadow-lg hover:shadow-[#6675FF]/30 hover:-translate-y-0.5 overflow-hidden"
               >
                 <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-full"></span>
-                <span className="relative">Search friend</span>
+                <span className="relative">Sign Up</span>
               </Link>
             </div>
+
           </div>
           
           {/* Right Content - Illustration */}

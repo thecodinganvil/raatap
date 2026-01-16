@@ -8,7 +8,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full px-6 md:px-12 py-4 bg-gradient-to-r from-white/80 via-white/90 to-white/80 backdrop-blur-xl border-b border-[#6675FF]/20 shadow-[0_4px_30px_rgba(102,117,255,0.1)] rounded-b-2xl">
       <div className="flex items-center justify-between max-w-7xl mx-auto">
         {/* Logo and Brand Name */}
-        <Link href="/" className="flex items-center gap-3 no-underline group">
+        <Link href="/" className="flex items-center no-underline group">
           <div className="relative">
             <div className="absolute -inset-2 bg-gradient-to-r from-[#6675FF]/20 to-[#8892ff]/20 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <Image
