@@ -34,14 +34,14 @@ export default function Signup() {
               <div className="absolute -inset-3 bg-gradient-to-r from-[#6675FF]/20 to-[#8892ff]/20 rounded-full blur-xl"></div>
               <Image
                 src="/favicon.png"
-                alt="Rataap Logo"
+                alt="Raatap Logo"
                 width={56}
                 height={56}
                 className="relative w-14 h-14 object-contain"
               />
             </div>
             <h1 className="text-2xl md:text-3xl font-medium text-[#171717]">
-              Rataap
+              Raatap
             </h1>
           </div>
       
