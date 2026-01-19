@@ -1,9 +1,42 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Terms and Conditions",
+  description:
+    "Raatap Terms and Conditions - Read our platform usage terms, user responsibilities, and legal agreements governing the ride-sharing community.",
+  keywords: [
+    "Raatap terms",
+    "ride sharing terms of service",
+    "carpooling agreement",
+    "platform usage terms",
+    "user agreement India",
+  ],
+  openGraph: {
+    title: "Terms and Conditions - Raatap",
+    description:
+      "Read Raatap's terms of service governing our community ride-sharing platform.",
+    url: "https://raatap.com/terms_&_conditions",
+  },
+  twitter: {
+    card: "summary",
+    title: "Terms and Conditions - Raatap",
+    description: "Terms governing Raatap's ride-sharing platform.",
+  },
+  alternates: {
+    canonical: "https://raatap.com/terms_&_conditions",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
+
 export default function TermsAndConditions() {
   return (
     <main className="min-h-screen bg-[#fcfcfd]">
       <section className="w-full px-6 md:px-12 lg:px-20 py-16 md:py-24">
         <div className="max-w-4xl mx-auto">
-          
+
           {/* Page Header */}
           <div className="mb-16">
             <div className="flex items-center gap-2 mb-4">
@@ -13,9 +46,9 @@ export default function TermsAndConditions() {
             <h1 className="text-4xl md:text-5xl font-semibold text-[#1a1a1a] mb-6 tracking-tight">
               Terms and Conditions
             </h1>
-            
+
           </div>
-          
+
           <div className="space-y-12">
             {/* Introduction */}
             <div className="prose prose-slate max-w-none">
@@ -278,7 +311,7 @@ export default function TermsAndConditions() {
               </section>
             </div>
           </div>
-          
+
         </div>
       </section>
     </main>
