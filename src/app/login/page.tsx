@@ -66,6 +66,11 @@ export default function Login() {
               Welcome Back
             </h1>
             <p className="text-gray-500 text-sm mt-2">Sign in to continue to Raatap</p>
+            <div className="mt-3 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+              <p className="text-xs text-amber-700 font-medium">
+                ⚠️ Please use your student/college email account only
+              </p>
+            </div>
           </div>
       
           {/* Google Sign In Button - Primary */}
