@@ -1,9 +1,42 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description:
+    "Raatap Privacy Policy - Learn how we collect, use, and protect your personal data. We respect your privacy and are committed to safeguarding your information.",
+  keywords: [
+    "Raatap privacy policy",
+    "ride sharing privacy",
+    "data protection India",
+    "DPDP Act compliance",
+    "user data privacy",
+  ],
+  openGraph: {
+    title: "Privacy Policy - Raatap",
+    description:
+      "Learn how Raatap collects, uses, and protects your personal data.",
+    url: "https://raatap.com/privacy_policy",
+  },
+  twitter: {
+    card: "summary",
+    title: "Privacy Policy - Raatap",
+    description: "Learn how Raatap protects your personal data.",
+  },
+  alternates: {
+    canonical: "https://raatap.com/privacy_policy",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
+
 export default function PrivacyPolicy() {
   return (
     <main className="min-h-screen bg-[#fcfcfd]">
       <section className="w-full px-6 md:px-12 lg:px-20 py-16 md:py-24">
         <div className="max-w-4xl mx-auto">
-          
+
           {/* Page Header */}
           <div className="mb-16">
             <div className="flex items-center gap-2 mb-4">
@@ -14,7 +47,7 @@ export default function PrivacyPolicy() {
               Privacy Policy
             </h1>
           </div>
-          
+
           <div className="space-y-12">
             {/* Introduction */}
             <div className="prose prose-slate max-w-none">
@@ -38,12 +71,12 @@ export default function PrivacyPolicy() {
               {/* 2. Information We Collect */}
               <section id="collection">
                 <h2 className="text-2xl font-bold text-[#1a1a1a] mb-6">2. INFORMATION WE COLLECT</h2>
-                
+
                 <div className="space-y-8">
                   <div className="p-6 rounded-2xl bg-gray-50 border border-gray-100">
                     <h3 className="text-lg font-bold text-[#1a1a1a] mb-3 flex items-center gap-2">
-                       <span className="w-2 h-2 rounded-full bg-[#6675FF]"></span>
-                       Personal Information
+                      <span className="w-2 h-2 rounded-full bg-[#6675FF]"></span>
+                      Personal Information
                     </h3>
                     <ul className="grid md:grid-cols-2 gap-2 list-none text-sm">
                       <li className="flex gap-2"><span>•</span> Full name</li>
@@ -132,9 +165,9 @@ export default function PrivacyPolicy() {
                 <h2 className="text-2xl font-bold text-[#1a1a1a] mb-4">5. DATA SHARING & DISCLOSURE</h2>
                 <p className="mb-4 font-bold text-[#1a1a1a] text-lg">We do not sell personal data.</p>
                 <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100 mb-4">
-                    <p className="text-amber-800 text-sm leading-relaxed">
-                      Information is shared only to enable ride coordination between Riders and Hosts, with Campus Admins for verification, or when required by law.
-                    </p>
+                  <p className="text-amber-800 text-sm leading-relaxed">
+                    Information is shared only to enable ride coordination between Riders and Hosts, with Campus Admins for verification, or when required by law.
+                  </p>
                 </div>
               </section>
 
@@ -212,7 +245,7 @@ export default function PrivacyPolicy() {
               </section>
             </div>
           </div>
-          
+
         </div>
       </section>
     </main>
