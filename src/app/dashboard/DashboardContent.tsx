@@ -92,17 +92,64 @@ export default function DashboardContent() {
     
     setSubmitting(true);
 
-    console.log("Waitlist submission:", {
-      userId: user?.id,
-      email: user?.email,
-      ...formData,
-      licenseImage: formData.licenseImage?.name,
-    });
+    try {
+      let licenseUrl = null;
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setSubmitting(false);
-    setSubmitted(true);
+      // Upload license image if exists
+      if (formData.licenseImage && user) {
+        const fileExt = formData.licenseImage.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('licenses')
+          .upload(fileName, formData.licenseImage);
+
+        if (uploadError) {
+          console.error('Error uploading license:', uploadError);
+          alert('Failed to upload license. Please try again.');
+          setSubmitting(false);
+          return;
+        }
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('licenses')
+          .getPublicUrl(fileName);
+        
+        licenseUrl = urlData.publicUrl;
+      }
+
+      // Insert into waitlist table
+      const { error: insertError } = await supabase
+        .from('waitlist')
+        .insert({
+          user_id: user?.id,
+          email: user?.email,
+          name: formData.name,
+          gender: formData.gender,
+          college: formData.college,
+          start_area: formData.startArea,
+          end_area: formData.endArea,
+          travel_time_start: formData.travelTimeStart,
+          travel_time_end: formData.travelTimeEnd,
+          role: formData.role,
+          license_url: licenseUrl,
+        });
+
+      if (insertError) {
+        console.error('Error saving to waitlist:', insertError);
+        alert('Failed to join waitlist. Please try again.');
+        setSubmitting(false);
+        return;
+      }
+
+      setSubmitted(true);
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      alert('An unexpected error occurred. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -183,14 +230,14 @@ export default function DashboardContent() {
             You&apos;re on the Waitlist!
           </h1>
           <p className="text-gray-500 mb-6">
-            Thanks for joining, {formData.name}! We&apos;ll notify you at {user?.email} when Raatap launches in your area.
+            Thanks for joining, {formData.name}! We&apos;ll notify you at {user?.email} when Raatap launches.
           </p>
-          <button
+          {/* <button
             onClick={handleSignOut}
             className="px-6 py-3 text-[#6675FF] font-medium hover:bg-[#6675FF]/10 rounded-xl transition-colors"
           >
             Sign Out
-          </button>
+          </button> */}
         </div>
       </main>
     );
