@@ -15,8 +15,7 @@ export default function SignupForm() {
       // Check if Supabase is properly configured
       const { isSupabaseConfigured } = await import('@/lib/supabase');
       if (!isSupabaseConfigured()) {
-        alert('⚠️ Supabase is not configured yet!\n\nPlease add your Supabase credentials to the .env.local file.\n\nSee OAUTH_SETUP.md for detailed instructions.');
-        return;
+        alert('⚠️ Supabase is not configured yet!');
       }
       
       const { error } = await supabase.auth.signInWithOAuth({
@@ -66,6 +65,11 @@ export default function SignupForm() {
               Join Raatap
             </h1>
             <p className="text-gray-500 text-sm mt-2">Create your account with Google</p>
+            <div className="mt-3 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+              <p className="text-xs text-amber-700 font-medium">
+                ⚠️ Please use your student/college email account only
+              </p>
+            </div>
           </div>
       
           {/* Google Sign In Button - Primary */}
