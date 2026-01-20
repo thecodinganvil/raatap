@@ -3,17 +3,39 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function Signup() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [college, setCollege] = useState("");
-  const [phone, setPhone] = useState("");
-  const [gender, setGender] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Signup:", { name, email, college, phone, gender });
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      
+      // Check if Supabase is properly configured
+      const { isSupabaseConfigured } = await import('@/lib/supabase');
+      if (!isSupabaseConfigured()) {
+        alert('⚠️ Supabase is not configured yet!\n\nPlease add your Supabase credentials to the .env.local file.\n\nSee OAUTH_SETUP.md for detailed instructions.');
+        return;
+      }
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/callback`,
+        },
+      });
+      
+      if (error) {
+        console.error('Error signing in with Google:', error.message);
+        alert('Failed to sign in with Google. Please try again.');
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      alert('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,145 +63,63 @@ export default function Signup() {
               />
             </div>
             <h1 className="text-2xl md:text-3xl font-medium text-[#171717]">
-              Raatap
+              Join Raatap
             </h1>
+            <p className="text-gray-500 text-sm mt-2">Create your account with Google</p>
           </div>
       
-          {/* Form */}
-          <form onSubmit={handleSignup} className="space-y-4">
-            {/* Name Input */}
-            <div className="group">
-              <label className="block text-sm font-medium text-gray-600 mb-1.5 ml-1">
-                Name
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className="w-full px-5 py-3.5 border-2 border-gray-200 rounded-2xl bg-white/50 text-[#171717] placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:bg-white transition-all duration-300 focus:shadow-lg focus:shadow-[#6675FF]/10"
-                  required
+          {/* Google Sign In Button - Primary */}
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            type="button"
+            className="group relative w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-medium rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-[#6675FF]/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent"></span>
+            <span className="relative flex items-center justify-center gap-3">
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path
+                  fill="white"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                 />
-              </div>
-            </div>
-            
-            {/* Email Input */}
-            <div className="group">
-              <label className="block text-sm font-medium text-gray-600 mb-1.5 ml-1">
-                Email
-              </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="yourname@email.com"
-                  className="w-full px-5 py-3.5 border-2 border-gray-200 rounded-2xl bg-white/50 text-[#171717] placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:bg-white transition-all duration-300 focus:shadow-lg focus:shadow-[#6675FF]/10"
-                  required
+                <path
+                  fill="white"
+                  opacity="0.8"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
                 />
-              </div>
-            </div>
-            
-            {/* College Input */}
-            <div className="group">
-              <label className="block text-sm font-medium text-gray-600 mb-1.5 ml-1">
-                College
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={college}
-                  onChange={(e) => setCollege(e.target.value)}
-                  placeholder="Your college name"
-                  className="w-full px-5 py-3.5 border-2 border-gray-200 rounded-2xl bg-white/50 text-[#171717] placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:bg-white transition-all duration-300 focus:shadow-lg focus:shadow-[#6675FF]/10"
-                  required
+                <path
+                  fill="white"
+                  opacity="0.9"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
                 />
-              </div>
-            </div>
-            
-            {/* Phone Number Input */}
-            <div className="group">
-              <label className="block text-sm font-medium text-gray-600 mb-1.5 ml-1">
-                Phone Number
-              </label>
-              <div className="relative">
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+91 12345 67890"
-                  className="w-full px-5 py-3.5 border-2 border-gray-200 rounded-2xl bg-white/50 text-[#171717] placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:bg-white transition-all duration-300 focus:shadow-lg focus:shadow-[#6675FF]/10"
-                  required
+                <path
+                  fill="white"
+                  opacity="0.7"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
-              </div>
-            </div>
-            
-            {/* Gender Select */}
-            <div className="group">
-              <label className="block text-sm font-medium text-gray-600 mb-1.5 ml-1">
-                Gender
-              </label>
-              <div className="relative">
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  className="w-full px-5 py-3.5 border-2 border-gray-200 rounded-2xl bg-white/50 text-[#171717] focus:outline-none focus:border-[#6675FF] focus:bg-white transition-all duration-300 focus:shadow-lg focus:shadow-[#6675FF]/10 appearance-none cursor-pointer"
-                  required
-                >
-                  <option value="">Select your gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-            
-            {/* Terms & Conditions */}
-            <div className="pt-2">
-              <p className="text-xs text-center text-gray-500 leading-relaxed">
-                By signing up, you agree to receive OTP via mail and accept our{" "}
-                <Link href="/terms_&_conditions" className="text-[#6675FF] font-medium hover:underline">
-                  Terms and Conditions
-                </Link>
-                {" "}and{" "}
-                <Link href="/privacy_policy" className="text-[#6675FF] font-medium hover:underline">
-                  Privacy Policy
-                </Link>
-              </p>
-            </div>
-            
-            {/* Submit Button */}
-            <div className="pt-4">
-              <button
-                type="submit"
-                className="group relative w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-medium rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-[#6675FF]/30 hover:-translate-y-0.5 active:translate-y-0"
-              >
-                <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent"></span>
-                <span className="relative flex items-center justify-center gap-2">
-                  Next
-                  <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </span>
-              </button>
-            </div>
-          </form>
+              </svg>
+              <span>
+                {loading ? 'Signing in...' : 'Continue with Google'}
+              </span>
+            </span>
+          </button>
           
-          {/* Divider */}
-          <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-px bg-gray-200"></div>
-            <span className="text-sm text-gray-400">or</span>
-            <div className="flex-1 h-px bg-gray-200"></div>
+          {/* Terms & Conditions */}
+          <div className="pt-4">
+            <p className="text-xs text-center text-gray-500 leading-relaxed">
+              By signing up, you agree to our{" "}
+              <Link href="/terms_&_conditions" className="text-[#6675FF] font-medium hover:underline">
+                Terms and Conditions
+              </Link>
+              {" "}and{" "}
+              <Link href="/privacy_policy" className="text-[#6675FF] font-medium hover:underline">
+                Privacy Policy
+              </Link>
+            </p>
           </div>
           
           {/* Already have account */}
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center text-sm text-gray-600 mt-6">
             Already have an account?{" "}
             <Link href="/login" className="text-[#6675FF] font-medium hover:underline">
               Log in
