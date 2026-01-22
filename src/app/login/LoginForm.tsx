@@ -15,6 +15,7 @@ export default function LoginForm() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +43,9 @@ export default function LoginForm() {
       if (data.session) {
         // Successfully logged in with JWT token
         console.log("JWT Token obtained:", data.session.access_token.substring(0, 20) + "...");
-        router.push("/dashboard");
+        // Refresh router cache and redirect
+        router.refresh();
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       console.error("Unexpected error:", err);
@@ -96,7 +99,7 @@ export default function LoginForm() {
         setError(error.message);
       } else {
         setError("");
-        alert("Password reset link sent to your email!");
+        setResetSent(true);
       }
     } catch (err) {
       console.error("Error:", err);
@@ -140,6 +143,15 @@ export default function LoginForm() {
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
               <p className="text-sm text-red-600 text-center">{error}</p>
+            </div>
+          )}
+
+          {/* Reset Email Sent Success */}
+          {resetSent && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+              <p className="text-sm text-green-600 text-center">
+                Password reset link sent to <strong>{email}</strong>. Check your inbox.
+              </p>
             </div>
           )}
 
