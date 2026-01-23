@@ -14,7 +14,18 @@ const isConfigured = supabaseUrl &&
 const safeUrl = isConfigured ? supabaseUrl : 'https://placeholder.supabase.co';
 const safeKey = isConfigured ? supabaseAnonKey : 'placeholder-key';
 
-export const supabase = createClient(safeUrl, safeKey);
+export const supabase = createClient(safeUrl, safeKey, {
+  auth: {
+    // Use PKCE flow for OAuth (more secure, uses code exchange)
+    flowType: 'pkce',
+    // Automatically refresh the session
+    autoRefreshToken: true,
+    // Persist session in localStorage
+    persistSession: true,
+    // Detect session from URL (important for OAuth callback)
+    detectSessionInUrl: true,
+  },
+});
 
 // Helper to check if Supabase is properly configured
 export const isSupabaseConfigured = () => isConfigured;

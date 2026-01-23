@@ -57,16 +57,30 @@ export async function GET(request: Request) {
 
     // Check if user authenticated via OAuth (Google, etc.)
     // OAuth providers already verify email, so we can skip email verification
-    const isOAuthUser = data.user?.app_metadata?.provider && 
-                        data.user.app_metadata.provider !== 'email';
+    // Supabase stores provider info in different places depending on auth method
+    const provider = data.user?.app_metadata?.provider;
+    const providers = data.user?.app_metadata?.providers as string[] | undefined;
+    
+    // User is OAuth if: provider is set and not 'email', OR providers array contains non-email providers
+    const isOAuthUser = (provider && provider !== 'email') || 
+                        (providers && providers.some(p => p !== 'email' && p !== 'password'));
+    
+    // Debug logging
+    console.log('Auth callback - User:', data.user?.email);
+    console.log('Auth callback - Provider:', provider);
+    console.log('Auth callback - Providers:', providers);
+    console.log('Auth callback - isOAuthUser:', isOAuthUser);
+    console.log('Auth callback - email_confirmed_at:', data.user?.email_confirmed_at);
     
     // Check if user's email is verified (skip for OAuth users)
     if (data.user && !data.user.email_confirmed_at && !isOAuthUser) {
       // Email not verified yet (only for email/password signups)
+      console.log('Auth callback - Redirecting to verify-email');
       return NextResponse.redirect(new URL('/verify-email', requestUrl.origin));
     }
 
     // Successfully authenticated - redirect to dashboard
+    console.log('Auth callback - Redirecting to dashboard');
     return NextResponse.redirect(new URL(next, requestUrl.origin));
   }
 
