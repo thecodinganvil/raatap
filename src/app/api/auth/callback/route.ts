@@ -55,13 +55,18 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/reset-password', requestUrl.origin));
     }
 
-    // Check if user's email is verified
-    if (data.user && !data.user.email_confirmed_at) {
-      // Email not verified yet
+    // Check if user authenticated via OAuth (Google, etc.)
+    // OAuth providers already verify email, so we can skip email verification
+    const isOAuthUser = data.user?.app_metadata?.provider && 
+                        data.user.app_metadata.provider !== 'email';
+    
+    // Check if user's email is verified (skip for OAuth users)
+    if (data.user && !data.user.email_confirmed_at && !isOAuthUser) {
+      // Email not verified yet (only for email/password signups)
       return NextResponse.redirect(new URL('/verify-email', requestUrl.origin));
     }
 
-    // Successfully authenticated with verified email
+    // Successfully authenticated - redirect to dashboard
     return NextResponse.redirect(new URL(next, requestUrl.origin));
   }
 
