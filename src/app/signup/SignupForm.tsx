@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -16,6 +16,40 @@ export default function SignupForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // Check if user is already logged in (handles OAuth redirect case)
+  useEffect(() => {
+    const checkSession = async () => {
+      if (!isSupabaseConfigured()) {
+        setCheckingSession(false);
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // User is already logged in, redirect to dashboard
+        console.log("Session found, redirecting to dashboard...");
+        window.location.href = "/dashboard";
+        return;
+      }
+      
+      setCheckingSession(false);
+    };
+
+    checkSession();
+
+    // Also listen for auth state changes (for when OAuth completes)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, session?.user?.email);
+      if (event === "SIGNED_IN" && session?.user) {
+        window.location.href = "/dashboard";
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Password strength checker
   const getPasswordStrength = (pass: string) => {
@@ -100,7 +134,7 @@ export default function SignupForm() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/api/auth/callback`,
+          redirectTo: `${window.location.origin}/signup`,
         },
       });
       
