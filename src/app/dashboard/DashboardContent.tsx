@@ -55,7 +55,29 @@ export default function DashboardContent() {
       
       if (session?.user) {
         setUser(session.user);
-        if (session.user.user_metadata?.full_name) {
+        
+        // Check if user has already submitted to waitlist
+        const { data: existingEntry } = await supabase
+          .from('waitlist')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+        
+        if (existingEntry) {
+          // User already submitted - show confirmation screen
+          setFormData(prev => ({
+            ...prev,
+            name: existingEntry.name || prev.name,
+            gender: existingEntry.gender || prev.gender,
+            college: existingEntry.college || prev.college,
+            startArea: existingEntry.start_area || prev.startArea,
+            endArea: existingEntry.end_area || prev.endArea,
+            travelTimeStart: existingEntry.travel_time_start || prev.travelTimeStart,
+            travelTimeEnd: existingEntry.travel_time_end || prev.travelTimeEnd,
+            role: existingEntry.role || prev.role,
+          }));
+          setSubmitted(true);
+        } else if (session.user.user_metadata?.full_name) {
           setFormData(prev => ({ ...prev, name: session.user.user_metadata.full_name }));
         }
       } else {
