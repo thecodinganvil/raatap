@@ -13,6 +13,20 @@ export default function ResetPasswordContent() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isLinkInvalid, setIsLinkInvalid] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // Check if session exists (set by callback)
+  useState(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setIsLinkInvalid(true);
+      }
+      setCheckingSession(false);
+    };
+    checkSession();
+  });
 
   // Password strength checker
   const getPasswordStrength = (pass: string) => {
@@ -46,6 +60,13 @@ export default function ResetPasswordContent() {
     try {
       setLoading(true);
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Your session has expired. Please request a new reset link.");
+        setIsLinkInvalid(true);
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: password,
       });
@@ -69,6 +90,44 @@ export default function ResetPasswordContent() {
     }
   };
 
+  if (checkingSession) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-[#f8f9fc] to-[#e8ebff] flex items-center justify-center">
+        <div className="animate-spin w-10 h-10 border-4 border-[#6675FF] border-t-transparent rounded-full"></div>
+      </main>
+    );
+  }
+
+  if (isLinkInvalid && !success) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-[#f8f9fc] to-[#e8ebff] flex items-center justify-center px-4 py-8">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="relative w-full max-w-lg text-center">
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 p-8 md:p-10 border border-white/50">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center text-red-500">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-medium text-[#171717] mb-3">Invalid or Expired Link</h1>
+            <p className="text-gray-500 mb-8">
+              This password reset link is invalid or has expired. Please request a new one from the login page.
+            </p>
+            <button
+              onClick={() => router.push("/login")}
+              className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-medium rounded-2xl transition-all hover:shadow-lg hover:-translate-y-0.5"
+            >
+              Back to Login
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
   if (success) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-[#f8f9fc] to-[#e8ebff] flex items-center justify-center px-4 py-8">
