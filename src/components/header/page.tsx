@@ -254,32 +254,9 @@ export default function Header() {
                   ) : (
                     <>
                       <Link
-                        href="/login"
-                        onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
-                      >
-                        <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <svg
-                            className="w-5 h-5 text-gray-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                            />
-                          </svg>
-                        </div>
-                        <span className="font-medium">Sign In</span>
-                      </Link>
-
-                      <Link
                         href="/signup"
                         onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 mt-1 bg-[#6675FF] text-white hover:bg-[#5563e8] rounded-xl transition-colors"
+                        className="flex items-center gap-3 px-3 py-2.5 bg-[#6675FF] text-white hover:bg-[#5563e8] rounded-xl transition-colors"
                       >
                         <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
                           <svg

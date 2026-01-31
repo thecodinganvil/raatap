@@ -64,7 +64,6 @@ export default function Footer() {
             {/* Account Column */}
             <div className="flex flex-col gap-3">
               <h3 className="text-lg font-medium mb-1">Account</h3>
-              <Link href="/login" className="text-white/80 hover:text-white transition-colors text-sm">Login</Link>
               <Link href="/signup" className="text-white/80 hover:text-white transition-colors text-sm">Sign Up</Link>
             </div>
           </div>

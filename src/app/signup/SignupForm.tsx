@@ -12,18 +12,18 @@ export default function SignupForm() {
 
   // Check if user is already logged in (handles OAuth redirect case)
   useEffect(() => {
-    const checkSession = async () => {
+    const handleAuth = async () => {
       if (!isSupabaseConfigured()) {
         setCheckingSession(false);
         return;
       }
 
+      // Check for existing session (Supabase auto-detects tokens in URL with implicit flow)
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (session?.user) {
-        // User is already logged in, redirect to dashboard
         console.log("Session found, redirecting to dashboard...");
         window.location.href = "/dashboard";
         return;
@@ -32,14 +32,15 @@ export default function SignupForm() {
       setCheckingSession(false);
     };
 
-    checkSession();
+    handleAuth();
 
-    // Also listen for auth state changes (for when OAuth completes)
+    // Listen for auth state changes - handles OAuth callback
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, session?.user?.email);
+      console.log("Signup auth state changed:", event, session?.user?.email);
       if (event === "SIGNED_IN" && session?.user) {
+        console.log("User signed in, redirecting to dashboard...");
         window.location.href = "/dashboard";
       }
     });
@@ -56,10 +57,22 @@ export default function SignupForm() {
         return;
       }
 
+      // Clear any stale auth data before starting new OAuth flow
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+
+      // Use implicit flow - redirect back to signup page, tokens come in URL hash
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}/signup`,
+          skipBrowserRedirect: false,
         },
       });
 
@@ -155,7 +168,6 @@ export default function SignupForm() {
               </span>
             </span>
           </button>
-        
 
           {/* Terms & Conditions */}
           <div className="pt-6">
@@ -176,17 +188,6 @@ export default function SignupForm() {
               </Link>
             </p>
           </div>
-
-          {/* Already have account */}
-          <p className="text-center text-sm text-gray-600 mt-6">
-            Already have an account?{" "}
-            <Link
-              href="/login"
-              className="text-[#6675FF] font-medium hover:underline"
-            >
-              Log in
-            </Link>
-          </p>
         </div>
 
         {/* Bottom Security Badge */}

@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 // Create Supabase client with service role
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 export async function POST(request: NextRequest) {
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     if (!otp || !userId) {
       return NextResponse.json(
         { error: "OTP and userId are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     if (fetchError || !otpRecord) {
       return NextResponse.json(
         { error: "No OTP found. Please request a new one." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     if (new Date(otpRecord.expires_at) < new Date()) {
       return NextResponse.json(
         { error: "OTP has expired. Please request a new one." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     if (otpRecord.verified) {
       return NextResponse.json(
         { error: "OTP already used. Please request a new one." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     if (otpRecord.otp !== otp) {
       return NextResponse.json(
         { error: "Invalid OTP. Please try again." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -62,16 +62,16 @@ export async function POST(request: NextRequest) {
       .update({ verified: true })
       .eq("user_id", userId);
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: "Email verified successfully",
-      email: otpRecord.email 
+      email: otpRecord.email,
     });
   } catch (error) {
     console.error("Verify OTP error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
