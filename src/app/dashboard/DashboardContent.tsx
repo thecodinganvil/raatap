@@ -213,19 +213,31 @@ export default function DashboardContent() {
       });
 
       if (error) {
-        // Better error handling for rate limits
-        if (error.message.toLowerCase().includes("rate limit")) {
+        console.error("Full OTP send error details:", error);
+        console.error("Error message:", error.message);
+        console.error("Error status:", error.status);
+
+        // Better error handling for common errors
+        if (error.message.toLowerCase().includes("rate limit") || 
+            error.message.toLowerCase().includes("security purposes") ||
+            error.status === 429) {
+          // Extract seconds from error message if present
+          const secondsMatch = error.message.match(/after (\d+) seconds/);
+          const waitTime = secondsMatch ? secondsMatch[1] : "60";
           setOtpError(
-            "Too many requests. Please wait a few minutes before trying again.",
+            `Please wait ${waitTime} seconds before requesting a new code.`,
           );
+          setResendTimer(parseInt(waitTime) + 5); // Set timer based on error
         } else {
+          // Show the actual error for debugging
           setOtpError(error.message);
         }
       } else {
         setVerificationStep("otp");
         setResendTimer(120); // Increased to 2 minutes to avoid rate limits
       }
-    } catch {
+    } catch (err) {
+      console.error("Unexpected OTP error:", err);
       setOtpError("Failed to send OTP. Please try again.");
     } finally {
       setOtpLoading(false);
@@ -233,8 +245,8 @@ export default function DashboardContent() {
   };
 
   const handleVerifyOTP = async () => {
-    if (!otpCode || otpCode.length !== 6) {
-      setOtpError("Please enter a valid 6-digit code");
+    if (!otpCode || otpCode.length !== 8) {
+      setOtpError("Please enter a valid 8-digit code");
       return;
     }
 
@@ -242,6 +254,8 @@ export default function DashboardContent() {
     setOtpError("");
 
     try {
+      console.log("Verifying OTP with:", { email: verificationEmail, token: otpCode });
+      
       const { error: verifyError } = await supabase.auth.verifyOtp({
         email: verificationEmail,
         token: otpCode,
@@ -249,13 +263,21 @@ export default function DashboardContent() {
       });
 
       if (verifyError) {
-        setOtpError(verifyError.message);
+        console.error("Verify OTP error:", verifyError);
+        
+        if (verifyError.message.toLowerCase().includes("expired")) {
+          setOtpError("Code expired. Please request a new code.");
+        } else if (verifyError.message.toLowerCase().includes("invalid")) {
+          setOtpError("Invalid code. Please check and try again.");
+        } else {
+          setOtpError(verifyError.message);
+        }
         return;
       }
 
       // OTP verified, now save the profile
       setSubmitting(true);
-      const { error: insertError } = await supabase.from("profiles").insert({
+      const { error: insertError } = await supabase.from("profiles").upsert({
         id: user?.id,
         full_name: formData.full_name,
         phone_number: formData.phone_number,
@@ -273,18 +295,31 @@ export default function DashboardContent() {
         comfortable_with: formData.comfortable_with,
         agreed_to_terms: formData.agreed_to_terms,
         otp_verified: true,
-      });
+      }, { onConflict: 'id' });
 
       if (insertError) {
-        console.error("Error saving:", insertError);
-        setOtpError("Failed to save profile. Please try again.");
+        console.error("Error saving profile:", insertError);
+        console.error("Insert error details:", {
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
+        });
+        setOtpError(
+          `Failed to save profile: ${insertError.message}. Check console for details.`,
+        );
         return;
       }
 
+      console.log("Profile saved successfully!");
+      setOtpLoading(false);
+      setSubmitting(false);
+      setVerificationStep("form"); // Reset verification step to allow submitted screen to show
       setSubmitted(true);
-    } catch {
+      return; // Exit early after success
+    } catch (err) {
+      console.error("Catch block error:", err);
       setOtpError("Failed to verify OTP. Please try again.");
-    } finally {
       setOtpLoading(false);
       setSubmitting(false);
     }
