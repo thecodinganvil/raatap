@@ -134,6 +134,11 @@ export default function LocationInput({
           const response = await fetch(
             `/api/locations/reverse?lat=${latitude}&lon=${longitude}`,
           );
+          
+          if (!response.ok) {
+            throw new Error("Failed to get address");
+          }
+          
           const data = await response.json();
 
           if (data.display_name) {
@@ -144,6 +149,12 @@ export default function LocationInput({
               .join(", ");
             setInputValue(cleanName);
             onChange(cleanName);
+          } else if (data.error) {
+            // API returned an error
+            console.error("Reverse geocoding API error:", data.error);
+            const coordString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+            setInputValue(coordString);
+            onChange(coordString);
           } else {
             const coordString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
             setInputValue(coordString);

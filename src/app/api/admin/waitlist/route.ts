@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data, error } = await supabase
-      .from("waitlist")
+      .from("profiles")
       .select("*")
       .order("created_at", { ascending: false });
 
