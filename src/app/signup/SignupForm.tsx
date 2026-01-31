@@ -155,13 +155,7 @@ export default function SignupForm() {
               </span>
             </span>
           </button>
-
-          {/* Info Notice */}
-          <div className="mt-6 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-xs text-blue-700 font-medium text-center">
-              💡 You&apos;ll verify your college email in the next step
-            </p>
-          </div>
+        
 
           {/* Terms & Conditions */}
           <div className="pt-6">

@@ -58,10 +58,8 @@ export default function DashboardContent() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // OTP Verification states
-  const [verificationStep, setVerificationStep] = useState<
-    "email" | "otp" | null
-  >(null);
-  const [verificationEmail, setVerificationEmail] = useState("");
+  const [verificationStep, setVerificationStep] = useState<"otp" | null>(null);
+  const [institutionalEmail, setInstitutionalEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState("");
@@ -194,14 +192,9 @@ export default function DashboardContent() {
       return;
     }
 
-    // Move to email verification step instead of submitting directly
-    setVerificationStep("email");
-    setVerificationEmail(user?.email || "");
-  };
-
-  const handleSendOTP = async () => {
-    if (!verificationEmail) {
-      setOtpError("Please enter your email");
+    // Send OTP to institutional email
+    if (!institutionalEmail) {
+      setErrors({ ...errors, institutional_email: "Institutional email is required" });
       return;
     }
 
@@ -209,47 +202,67 @@ export default function DashboardContent() {
     setOtpError("");
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: verificationEmail,
+      const response = await fetch("/api/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: institutionalEmail,
+          userId: user?.id,
+        }),
       });
 
-      if (error) {
-        console.error("Full OTP send error details:", error);
-        console.error("Error message:", error.message);
-        console.error("Error status:", error.status);
+      const data = await response.json();
 
-        // Better error handling for common errors
-        if (
-          error.message.toLowerCase().includes("rate limit") ||
-          error.message.toLowerCase().includes("security purposes") ||
-          error.status === 429
-        ) {
-          // Extract seconds from error message if present
-          const secondsMatch = error.message.match(/after (\d+) seconds/);
-          const waitTime = secondsMatch ? secondsMatch[1] : "60";
-          setOtpError(
-            `Please wait ${waitTime} seconds before requesting a new code.`,
-          );
-          setResendTimer(parseInt(waitTime) + 5); // Set timer based on error
-        } else {
-          // Show the actual error for debugging
-          setOtpError(error.message);
-        }
-      } else {
-        setVerificationStep("otp");
-        setResendTimer(120); // Increased to 2 minutes to avoid rate limits
+      if (!response.ok) {
+        setOtpError(data.error || "Failed to send OTP");
+        setOtpLoading(false);
+        return;
       }
+
+      setVerificationStep("otp");
+      setResendTimer(60);
     } catch (err) {
-      console.error("Unexpected OTP error:", err);
+      console.error("Send OTP error:", err);
       setOtpError("Failed to send OTP. Please try again.");
     } finally {
       setOtpLoading(false);
     }
   };
 
+  const handleResendOTP = async () => {
+    if (resendTimer > 0) return;
+
+    setOtpLoading(true);
+    setOtpError("");
+
+    try {
+      const response = await fetch("/api/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: institutionalEmail,
+          userId: user?.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setOtpError(data.error || "Failed to resend OTP");
+      } else {
+        setResendTimer(60);
+        setOtpError("");
+      }
+    } catch (err) {
+      setOtpError("Failed to resend OTP");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
   const handleVerifyOTP = async () => {
-    if (!otpCode || otpCode.length !== 8) {
-      setOtpError("Please enter a valid 8-digit code");
+    if (!otpCode || otpCode.length !== 6) {
+      setOtpError("Please enter a valid 6-digit code");
       return;
     }
 
@@ -257,27 +270,20 @@ export default function DashboardContent() {
     setOtpError("");
 
     try {
-      console.log("Verifying OTP with:", {
-        email: verificationEmail,
-        token: otpCode,
+      const response = await fetch("/api/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          otp: otpCode,
+          userId: user?.id,
+        }),
       });
 
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: verificationEmail,
-        token: otpCode,
-        type: "email",
-      });
+      const data = await response.json();
 
-      if (verifyError) {
-        console.error("Verify OTP error:", verifyError);
-
-        if (verifyError.message.toLowerCase().includes("expired")) {
-          setOtpError("Code expired. Please request a new code.");
-        } else if (verifyError.message.toLowerCase().includes("invalid")) {
-          setOtpError("Invalid code. Please check and try again.");
-        } else {
-          setOtpError(verifyError.message);
-        }
+      if (!response.ok) {
+        setOtpError(data.error || "Invalid OTP");
+        setOtpLoading(false);
         return;
       }
 
@@ -291,6 +297,7 @@ export default function DashboardContent() {
           age: parseInt(formData.age),
           gender: formData.gender,
           institution: formData.institution,
+          institutional_email: institutionalEmail,
           from_location: formData.from_location,
           to_location: formData.to_location,
           leave_home_time: formData.leave_home_time,
@@ -301,7 +308,7 @@ export default function DashboardContent() {
           vehicle_type: formData.vehicle_type,
           comfortable_with: formData.comfortable_with,
           agreed_to_terms: formData.agreed_to_terms,
-          otp_verified: true,
+          email_verified: true,
         },
         { onConflict: "id" },
       );
@@ -364,7 +371,7 @@ export default function DashboardContent() {
   }
 
   // Email OTP Verification Screen
-  if (verificationStep === "email" || verificationStep === "otp") {
+  if (verificationStep === "otp") {
     return (
       <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-white to-[#e8ebff] flex items-center justify-center px-4 py-12">
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -374,216 +381,122 @@ export default function DashboardContent() {
 
         <div className="relative w-full max-w-md">
           <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 border border-white/50 p-8 md:p-10">
-            {verificationStep === "email" ? (
-              <>
-                <div className="text-center mb-8">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#6675FF]/10 flex items-center justify-center">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#6675FF]/10 flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-[#6675FF]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-semibold text-[#171717] mb-2">
+                Verify Your Email
+              </h2>
+              <p className="text-gray-500 text-sm">
+                We sent a 6-digit code to{" "}
+                <span className="font-medium text-[#6675FF]">
+                  {institutionalEmail}
+                </span>
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
+                  Enter 6-digit code
+                </label>
+                <input
+                  type="text"
+                  value={otpCode}
+                  onChange={(e) => {
+                    const value = e.target.value
+                      .replace(/[^0-9]/g, "")
+                      .slice(0, 6);
+                    setOtpCode(value);
+                    setOtpError("");
+                  }}
+                  placeholder="000000"
+                  maxLength={6}
+                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:ring-4 focus:ring-[#6675FF]/10 transition-all text-center text-2xl tracking-[0.5em] font-mono"
+                  autoFocus
+                />
+              </div>
+
+              {otpError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-sm text-red-600">{otpError}</p>
+                </div>
+              )}
+
+              <button
+                onClick={handleVerifyOTP}
+                disabled={otpLoading || otpCode.length !== 6}
+                className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {otpLoading ? (
+                  <span className="flex items-center justify-center gap-2">
                     <svg
-                      className="w-8 h-8 text-[#6675FF]"
+                      className="animate-spin w-5 h-5"
                       fill="none"
-                      stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
                       <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
-                  </div>
-                  <h2 className="text-2xl font-semibold text-[#171717] mb-2">
-                    Verify Your Email
-                  </h2>
-                  <p className="text-gray-500 text-sm">
-                    We&apos;ll send an OTP to verify your email address
+                    Verifying...
+                  </span>
+                ) : (
+                  "Verify & Complete"
+                )}
+              </button>
+
+              <div className="flex flex-col gap-2">
+                {resendTimer > 0 ? (
+                  <p className="text-center text-sm text-gray-500">
+                    Resend OTP in {resendTimer}s
                   </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      value={verificationEmail}
-                      onChange={(e) => {
-                        setVerificationEmail(e.target.value);
-                        setOtpError("");
-                      }}
-                      placeholder="Enter your email"
-                      className="w-full px-5 py-3.5 border-2 border-gray-200 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:ring-4 focus:ring-[#6675FF]/10 transition-all"
-                    />
-                  </div>
-
-                  {otpError && (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-                      <p className="text-sm text-red-600">{otpError}</p>
-                    </div>
-                  )}
-
+                ) : (
                   <button
-                    onClick={handleSendOTP}
+                    onClick={handleResendOTP}
                     disabled={otpLoading}
-                    className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 text-[#6675FF] font-medium hover:underline disabled:opacity-50"
                   >
-                    {otpLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg
-                          className="animate-spin w-5 h-5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Sending...
-                      </span>
-                    ) : (
-                      "Send OTP"
-                    )}
+                    Resend OTP
                   </button>
+                )}
 
-                  <button
-                    onClick={() => setVerificationStep(null)}
-                    className="w-full py-2 text-gray-500 font-medium hover:text-[#6675FF] transition-colors"
-                  >
-                    Back to form
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-center mb-8">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#6675FF]/10 flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 text-[#6675FF]"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                  </div>
-                  <h2 className="text-2xl font-semibold text-[#171717] mb-2">
-                    Enter OTP
-                  </h2>
-                  <p className="text-gray-500 text-sm">
-                    Check your email{" "}
-                    <span className="font-medium text-[#6675FF]">
-                      {verificationEmail}
-                    </span>{" "}
-                    for the 6-digit code
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
-                      One-Time Password
-                    </label>
-                    <input
-                      type="text"
-                      value={otpCode}
-                      onChange={(e) => {
-                        const value = e.target.value
-                          .replace(/[^0-9]/g, "")
-                          .slice(0, 8);
-                        setOtpCode(value);
-                        setOtpError("");
-                      }}
-                      placeholder="00000000"
-                      maxLength={8}
-                      className="w-full px-5 py-4 border-2 border-gray-200 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:ring-4 focus:ring-[#6675FF]/10 transition-all text-center text-2xl tracking-[0.5em] font-mono"
-                    />
-                  </div>
-
-                  {otpError && (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-                      <p className="text-sm text-red-600">{otpError}</p>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleVerifyOTP}
-                    disabled={otpLoading || otpCode.length !== 8}
-                    className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {otpLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg
-                          className="animate-spin w-5 h-5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Verifying...
-                      </span>
-                    ) : (
-                      "Verify & Complete"
-                    )}
-                  </button>
-
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() => {
-                        setVerificationStep("email");
-                        setOtpCode("");
-                        setOtpError("");
-                      }}
-                      disabled={otpLoading}
-                      className="w-full py-2 text-[#6675FF] font-medium hover:underline disabled:opacity-50"
-                    >
-                      Change Email
-                    </button>
-
-                    {resendTimer > 0 ? (
-                      <p className="text-center text-sm text-gray-500">
-                        Resend OTP in {resendTimer}s
-                      </p>
-                    ) : (
-                      <button
-                        onClick={handleSendOTP}
-                        disabled={otpLoading}
-                        className="w-full py-2 text-gray-500 font-medium hover:text-[#6675FF] transition-colors disabled:opacity-50"
-                      >
-                        Resend OTP
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
+                <button
+                  onClick={() => {
+                    setVerificationStep(null);
+                    setOtpCode("");
+                    setOtpError("");
+                  }}
+                  disabled={otpLoading}
+                  className="w-full py-2 text-gray-500 font-medium hover:text-[#6675FF] transition-colors disabled:opacity-50"
+                >
+                  Back to form
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </main>
@@ -867,6 +780,33 @@ export default function DashboardContent() {
                 {errors.institution && (
                   <p className="text-red-500 text-xs mt-1 ml-1">
                     {errors.institution}
+                  </p>
+                )}
+              </div>
+
+              {/* Institutional Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
+                  Institutional Email
+                  <span className="text-xs text-gray-500 font-normal ml-2">
+                    (We'll verify this)
+                  </span>
+                </label>
+                <input
+                  type="email"
+                  placeholder="e.g., yourname@cbit.ac.in"
+                  value={institutionalEmail}
+                  onChange={(e) => {
+                    setInstitutionalEmail(e.target.value);
+                    if (errors.institutional_email)
+                      setErrors((prev) => ({ ...prev, institutional_email: "" }));
+                  }}
+                  className={`w-full px-5 py-3.5 border-2 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all ${errors.institutional_email ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#6675FF] focus:ring-[#6675FF]/10"}`}
+                  required
+                />
+                {errors.institutional_email && (
+                  <p className="text-red-500 text-xs mt-1 ml-1">
+                    {errors.institutional_email}
                   </p>
                 )}
               </div>

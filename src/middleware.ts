@@ -45,7 +45,9 @@ export async function middleware(request: NextRequest) {
   );
 
   // Refresh session and get user
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // If user is logged in and on homepage, redirect to dashboard
   const pathname = request.nextUrl.pathname;

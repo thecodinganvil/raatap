@@ -6,21 +6,26 @@ import Image from "next/image";
 
 interface WaitlistEntry {
   id: string;
-  user_id: string;
-  email: string;
-  name: string;
+  full_name: string;
+  phone_number: string;
+  age: number;
   gender: string;
-  college: string;
-  start_area: string;
-  end_area: string;
-  travel_time_start: string;
-  travel_time_end: string;
-  role: string;
-  license_url: string | null;
+  institution: string;
+  institutional_email: string;
+  from_location: string;
+  to_location: string;
+  leave_home_time: string;
+  leave_college_time: string;
+  days_of_commute: string[];
+  prefer_hosting: boolean;
+  prefer_taking_ride: boolean;
+  vehicle_type: string;
+  comfortable_with: string;
+  email_verified: boolean;
   created_at: string;
 }
 
-type SortField = "created_at" | "name" | "college" | "role";
+type SortField = "created_at" | "full_name" | "institution";
 type SortOrder = "asc" | "desc";
 
 export default function AdminDashboard() {
@@ -123,8 +128,8 @@ export default function AdminDashboard() {
       setEntries(entriesData);
       setFilteredEntries(entriesData);
       
-      // Extract unique colleges
-      const uniqueColleges = [...new Set(entriesData.map((e: WaitlistEntry) => e.college).filter(Boolean))] as string[];
+      // Extract unique institutions
+      const uniqueColleges = [...new Set(entriesData.map((e: WaitlistEntry) => e.institution).filter(Boolean))] as string[];
       setColleges(uniqueColleges.sort());
     } catch (error) {
       console.error("Error fetching entries:", error);
@@ -140,20 +145,24 @@ export default function AdminDashboard() {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (entry: WaitlistEntry) =>
-          entry.name?.toLowerCase().includes(query) ||
-          entry.email?.toLowerCase().includes(query) ||
-          entry.college?.toLowerCase().includes(query)
+          entry.full_name?.toLowerCase().includes(query) ||
+          entry.institutional_email?.toLowerCase().includes(query) ||
+          entry.institution?.toLowerCase().includes(query)
       );
     }
 
     // College filter
     if (collegeFilter !== "all") {
-      result = result.filter((entry: WaitlistEntry) => entry.college === collegeFilter);
+      result = result.filter((entry: WaitlistEntry) => entry.institution === collegeFilter);
     }
 
-    // Role filter
+    // Role filter (now based on prefer_hosting)
     if (roleFilter !== "all") {
-      result = result.filter((entry: WaitlistEntry) => entry.role === roleFilter);
+      result = result.filter((entry: WaitlistEntry) => {
+        if (roleFilter === "host") return entry.prefer_hosting;
+        if (roleFilter === "rider") return entry.prefer_taking_ride;
+        return true;
+      });
     }
 
     // Sort
@@ -194,15 +203,6 @@ export default function AdminDashboard() {
     });
   };
 
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case "host": return "bg-blue-100 text-blue-700 border-blue-200";
-      case "passenger": return "bg-green-100 text-green-700 border-green-200";
-      case "both": return "bg-purple-100 text-purple-700 border-purple-200";
-      default: return "bg-gray-100 text-gray-700 border-gray-200";
-    }
-  };
-
   const getGenderBadgeColor = (gender: string) => {
     switch (gender) {
       case "male": return "bg-sky-100 text-sky-700";
@@ -214,10 +214,10 @@ export default function AdminDashboard() {
   // Stats
   const stats = {
     total: entries.length,
-    hosts: entries.filter((e: WaitlistEntry) => e.role === "host").length,
-    passengers: entries.filter((e: WaitlistEntry) => e.role === "passenger").length,
-    both: entries.filter((e: WaitlistEntry) => e.role === "both").length,
-    uniqueColleges: colleges.length,
+    hosts: entries.filter((e: WaitlistEntry) => e.prefer_hosting).length,
+    riders: entries.filter((e: WaitlistEntry) => e.prefer_taking_ride).length,
+    verified: entries.filter((e: WaitlistEntry) => e.email_verified).length,
+    uniqueInstitutions: colleges.length,
   };
 
   if (loading) {
@@ -343,7 +343,7 @@ export default function AdminDashboard() {
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-medium text-[#171717]">
-              Waitlist Management
+              User Profiles
             </h1>
             <p className="text-gray-500 text-sm mt-1">
               Logged in as {adminEmail}
@@ -365,23 +365,23 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
             <p className="text-3xl font-semibold text-[#171717]">{stats.total}</p>
-            <p className="text-sm text-gray-500">Total Signups</p>
+            <p className="text-sm text-gray-500">Total Profiles</p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
             <p className="text-3xl font-semibold text-blue-600">{stats.hosts}</p>
             <p className="text-sm text-gray-500">Hosts</p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
-            <p className="text-3xl font-semibold text-green-600">{stats.passengers}</p>
-            <p className="text-sm text-gray-500">Passengers</p>
+            <p className="text-3xl font-semibold text-purple-600">{stats.riders}</p>
+            <p className="text-sm text-gray-500">Riders</p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
-            <p className="text-3xl font-semibold text-purple-600">{stats.both}</p>
-            <p className="text-sm text-gray-500">Both</p>
+            <p className="text-3xl font-semibold text-green-600">{stats.verified}</p>
+            <p className="text-sm text-gray-500">Verified</p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
-            <p className="text-3xl font-semibold text-amber-600">{stats.uniqueColleges}</p>
-            <p className="text-sm text-gray-500">Colleges</p>
+            <p className="text-3xl font-semibold text-amber-600">{stats.uniqueInstitutions}</p>
+            <p className="text-sm text-gray-500">Institutions</p>
           </div>
         </div>
 
@@ -396,7 +396,7 @@ export default function AdminDashboard() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search by name, email, or college..."
+                  placeholder="Search by name, email, or institution..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl bg-white/50 text-[#171717] placeholder-gray-400 focus:outline-none focus:border-[#6675FF] transition-colors"
@@ -404,37 +404,36 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* College Filter */}
+            {/* Institution Filter */}
             <div className="md:w-48">
               <select
                 value={collegeFilter}
                 onChange={(e) => setCollegeFilter(e.target.value)}
                 className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl bg-white/50 text-[#171717] focus:outline-none focus:border-[#6675FF] transition-colors appearance-none cursor-pointer"
               >
-                <option value="all">All Colleges</option>
+                <option value="all">All Institutions</option>
                 {colleges.map(college => (
                   <option key={college} value={college}>{college}</option>
                 ))}
               </select>
             </div>
 
-            {/* Role Filter */}
+            {/* Preference Filter */}
             <div className="md:w-40">
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
                 className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl bg-white/50 text-[#171717] focus:outline-none focus:border-[#6675FF] transition-colors appearance-none cursor-pointer"
               >
-                <option value="all">All Roles</option>
-                <option value="host">Host</option>
-                <option value="passenger">Passenger</option>
-                <option value="both">Both</option>
+                <option value="all">All Preferences</option>
+                <option value="host">Hosts</option>
+                <option value="rider">Riders</option>
               </select>
             </div>
           </div>
           
           <p className="text-sm text-gray-500 mt-3">
-            Showing {filteredEntries.length} of {entries.length} entries
+            Showing {filteredEntries.length} of {entries.length} profiles
           </p>
         </div>
 
@@ -446,11 +445,11 @@ export default function AdminDashboard() {
                 <tr className="bg-gray-50/80 border-b border-gray-200">
                   <th 
                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100/50 transition-colors"
-                    onClick={() => handleSort("name")}
+                    onClick={() => handleSort("full_name")}
                   >
                     <span className="flex items-center gap-1">
                       Name
-                      {sortField === "name" && (
+                      {sortField === "full_name" && (
                         <svg className={`w-4 h-4 ${sortOrder === "asc" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
@@ -458,14 +457,14 @@ export default function AdminDashboard() {
                     </span>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender/Age</th>
                   <th 
                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100/50 transition-colors"
-                    onClick={() => handleSort("college")}
+                    onClick={() => handleSort("institution")}
                   >
                     <span className="flex items-center gap-1">
-                      College
-                      {sortField === "college" && (
+                      Institution
+                      {sortField === "institution" && (
                         <svg className={`w-4 h-4 ${sortOrder === "asc" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
@@ -473,21 +472,9 @@ export default function AdminDashboard() {
                     </span>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Route</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                  <th 
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100/50 transition-colors"
-                    onClick={() => handleSort("role")}
-                  >
-                    <span className="flex items-center gap-1">
-                      Role
-                      {sortField === "role" && (
-                        <svg className={`w-4 h-4 ${sortOrder === "asc" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      )}
-                    </span>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">License</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preference</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
                   <th 
                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100/50 transition-colors"
                     onClick={() => handleSort("created_at")}
@@ -507,63 +494,64 @@ export default function AdminDashboard() {
                 {filteredEntries.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
-                      {entries.length === 0 ? "No waitlist entries yet" : "No entries match your filters"}
+                      {entries.length === 0 ? "No profiles yet" : "No entries match your filters"}
                     </td>
                   </tr>
                 ) : (
                   filteredEntries.map((entry) => (
                     <tr key={entry.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <p className="font-medium text-[#171717]">{entry.name}</p>
+                        <p className="font-medium text-[#171717]">{entry.full_name}</p>
+                        <p className="text-xs text-gray-500">{entry.phone_number}</p>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <p className="text-sm text-gray-600">{entry.email}</p>
+                        <p className="text-sm text-gray-600">{entry.institutional_email}</p>
+                        <span className={`text-xs ${entry.email_verified ? 'text-green-600' : 'text-orange-500'}`}>
+                          {entry.email_verified ? '✓ Verified' : '⏳ Pending'}
+                        </span>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full capitalize ${getGenderBadgeColor(entry.gender)}`}>
                           {entry.gender}
                         </span>
+                        <p className="text-xs text-gray-500 mt-1">Age: {entry.age}</p>
                       </td>
                       <td className="px-4 py-4">
-                        <p className="text-sm text-[#171717] max-w-[150px] truncate" title={entry.college}>
-                          {entry.college}
+                        <p className="text-sm text-[#171717] max-w-[150px] truncate" title={entry.institution}>
+                          {entry.institution}
                         </p>
                       </td>
                       <td className="px-4 py-4">
                         <p className="text-xs text-gray-600">
-                          <span className="text-green-600">From:</span> {entry.start_area}
+                          <span className="text-green-600">From:</span> {entry.from_location?.slice(0, 30)}...
                         </p>
                         <p className="text-xs text-gray-600">
-                          <span className="text-red-600">To:</span> {entry.end_area}
+                          <span className="text-red-600">To:</span> {entry.to_location?.slice(0, 30)}...
                         </p>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <p className="text-sm text-gray-600">
-                          {entry.travel_time_start} - {entry.travel_time_end}
+                          {entry.leave_home_time} - {entry.leave_college_time}
                         </p>
+                        <p className="text-xs text-gray-400">{entry.days_of_commute?.join(', ')}</p>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-lg border capitalize ${getRoleBadgeColor(entry.role)}`}>
-                          {entry.role}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          {entry.prefer_hosting && (
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-lg border bg-blue-50 text-blue-700 border-blue-200">
+                              Host
+                            </span>
+                          )}
+                          {entry.prefer_taking_ride && (
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-lg border bg-purple-50 text-purple-700 border-purple-200">
+                              Rider
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        {entry.license_url ? (
-                          <a
-                            href={entry.license_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-[#6675FF] hover:underline"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            View
-                          </a>
-                        ) : (
-                          <span className="text-xs text-gray-400">N/A</span>
-                        )}
+                        <p className="text-xs text-gray-600">{entry.vehicle_type || 'N/A'}</p>
+                        <p className="text-xs text-gray-400">With: {entry.comfortable_with}</p>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <p className="text-xs text-gray-500">{formatDate(entry.created_at)}</p>
@@ -582,7 +570,7 @@ export default function AdminDashboard() {
             <h2 className="text-lg font-medium text-[#171717] mb-4">Signups by College</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {colleges.map(college => {
-                const count = entries.filter((e: WaitlistEntry) => e.college === college).length;
+                const count = entries.filter((e: WaitlistEntry) => e.institution === college).length;
                 const percentage = entries.length > 0 ? Math.round((count / entries.length) * 100) : 0;
                 return (
                   <div 
