@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     url: "https://raatap.com",
     images: [
       {
-        url: "/landingpage_one.png",
+        url: "/landingpage.png",
         width: 1200,
         height: 630,
         alt: "Raatap - People sharing rides together",
@@ -121,7 +121,7 @@ export default function Home() {
             <div className="flex-1 flex justify-center lg:justify-end">
               <div className="relative w-full max-w-lg lg:max-w-2xl">
                 <Image
-                  src="/landingpage_one.png"
+                  src="/landingpage.png"
                   alt="People sharing rides together - Raatap community ride sharing"
                   width={600}
                   height={500}
@@ -150,7 +150,7 @@ export default function Home() {
                 {/* Image */}
                 <div className="w-24 h-24 mb-6">
                   <Image
-                    src="/trust.png"
+                    src="/verify.png"
                     alt="Verify Yourself"
                     width={96}
                     height={96}
@@ -173,7 +173,7 @@ export default function Home() {
                 {/* Image */}
                 <div className="w-24 h-24 mb-6">
                   <Image
-                    src="/cost_saving.png"
+                    src="/set_commute.png"
                     alt="Set Your Commute"
                     width={96}
                     height={96}
@@ -196,7 +196,7 @@ export default function Home() {
                 {/* Image */}
                 <div className="w-24 h-24 mb-6">
                   <Image
-                    src="/community_support.png"
+                    src="/form_pod.png"
                     alt="Form Your Pod"
                     width={96}
                     height={96}
