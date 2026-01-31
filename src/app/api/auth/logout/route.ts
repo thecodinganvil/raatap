@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { NextResponse } from "next/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 export async function POST() {
   const cookieStore = await cookies();
@@ -13,33 +13,36 @@ export async function POST() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options: CookieOptions;
+          }[],
+        ) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, options),
             );
           } catch {
             // Handle cookie setting errors
           }
         },
       },
-    }
+    },
   );
 
   // Sign out from Supabase (invalidates the session)
   const { error } = await supabase.auth.signOut();
 
   if (error) {
-    return NextResponse.json(
-      { error: 'Failed to sign out' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to sign out" }, { status: 500 });
   }
 
   // Clear all Supabase-related cookies
   const allCookies = cookieStore.getAll();
   allCookies.forEach((cookie) => {
-    if (cookie.name.includes('supabase') || cookie.name.includes('sb-')) {
+    if (cookie.name.includes("supabase") || cookie.name.includes("sb-")) {
       cookieStore.delete(cookie.name);
     }
   });
@@ -59,21 +62,27 @@ export async function GET(request: Request) {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options: CookieOptions;
+          }[],
+        ) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, options),
             );
           } catch {
             // Handle cookie setting errors
           }
         },
       },
-    }
+    },
   );
 
   await supabase.auth.signOut();
 
   const requestUrl = new URL(request.url);
-  return NextResponse.redirect(new URL('/', requestUrl.origin));
+  return NextResponse.redirect(new URL("/", requestUrl.origin));
 }

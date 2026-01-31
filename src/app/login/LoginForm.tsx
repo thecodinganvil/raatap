@@ -123,14 +123,23 @@ export default function LoginForm() {
       return;
     }
 
+    if (!isSupabaseConfigured()) {
+      setError("⚠️ Supabase is not configured yet!");
+      return;
+    }
+
     try {
       setLoading(true);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${window.location.origin}/api/auth/callback?next=/reset-password&type=recovery`,
       });
 
       if (error) {
-        setError(error.message);
+        if (error.message.includes("rate limit")) {
+          setError("You've requested too many reset links. Please wait a few minutes before trying again.");
+        } else {
+          setError(error.message);
+        }
       } else {
         setError("");
         setResetSent(true);
