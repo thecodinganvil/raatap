@@ -314,7 +314,7 @@ export default function DashboardContent() {
       console.log("Profile saved successfully!");
       setOtpLoading(false);
       setSubmitting(false);
-      setVerificationStep("form"); // Reset verification step to allow submitted screen to show
+      setVerificationStep(null); // Reset verification step to allow submitted screen to show
       setSubmitted(true);
       return; // Exit early after success
     } catch (err) {
