@@ -4,13 +4,11 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Middleware for Supabase SSR Session Management
  *
- * This middleware ONLY refreshes session cookies - it does NOT block routes.
- * Route protection is handled by client-side components (DashboardContent.tsx, etc.)
+ * This middleware:
+ * 1. Refreshes session cookies
+ * 2. Redirects logged-in users from homepage to dashboard
  *
- * This is done because:
- * 1. Client-side Supabase auth stores session in cookies
- * 2. Middleware runs on edge and may not always see fresh cookies immediately after login
- * 3. Client-side protection is more reliable for SPAs with client-side auth
+ * Route protection for /dashboard is handled by client-side components.
  */
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -46,9 +44,14 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // Refresh session - this is the ONLY job of this middleware
-  // It ensures session cookies are refreshed on each request
-  await supabase.auth.getUser();
+  // Refresh session and get user
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // If user is logged in and on homepage, redirect to dashboard
+  const pathname = request.nextUrl.pathname;
+  if (user && pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
 
   // Always allow the request through
   // Client-side components handle their own auth and redirects

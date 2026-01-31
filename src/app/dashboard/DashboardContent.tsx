@@ -219,9 +219,11 @@ export default function DashboardContent() {
         console.error("Error status:", error.status);
 
         // Better error handling for common errors
-        if (error.message.toLowerCase().includes("rate limit") || 
-            error.message.toLowerCase().includes("security purposes") ||
-            error.status === 429) {
+        if (
+          error.message.toLowerCase().includes("rate limit") ||
+          error.message.toLowerCase().includes("security purposes") ||
+          error.status === 429
+        ) {
           // Extract seconds from error message if present
           const secondsMatch = error.message.match(/after (\d+) seconds/);
           const waitTime = secondsMatch ? secondsMatch[1] : "60";
@@ -255,8 +257,11 @@ export default function DashboardContent() {
     setOtpError("");
 
     try {
-      console.log("Verifying OTP with:", { email: verificationEmail, token: otpCode });
-      
+      console.log("Verifying OTP with:", {
+        email: verificationEmail,
+        token: otpCode,
+      });
+
       const { error: verifyError } = await supabase.auth.verifyOtp({
         email: verificationEmail,
         token: otpCode,
@@ -265,7 +270,7 @@ export default function DashboardContent() {
 
       if (verifyError) {
         console.error("Verify OTP error:", verifyError);
-        
+
         if (verifyError.message.toLowerCase().includes("expired")) {
           setOtpError("Code expired. Please request a new code.");
         } else if (verifyError.message.toLowerCase().includes("invalid")) {
@@ -278,25 +283,28 @@ export default function DashboardContent() {
 
       // OTP verified, now save the profile
       setSubmitting(true);
-      const { error: insertError } = await supabase.from("profiles").upsert({
-        id: user?.id,
-        full_name: formData.full_name,
-        phone_number: formData.phone_number,
-        age: parseInt(formData.age),
-        gender: formData.gender,
-        institution: formData.institution,
-        from_location: formData.from_location,
-        to_location: formData.to_location,
-        leave_home_time: formData.leave_home_time,
-        leave_college_time: formData.leave_college_time,
-        days_of_commute: formData.days_of_commute,
-        prefer_hosting: formData.prefer_hosting,
-        prefer_taking_ride: formData.prefer_taking_ride,
-        vehicle_type: formData.vehicle_type,
-        comfortable_with: formData.comfortable_with,
-        agreed_to_terms: formData.agreed_to_terms,
-        otp_verified: true,
-      }, { onConflict: 'id' });
+      const { error: insertError } = await supabase.from("profiles").upsert(
+        {
+          id: user?.id,
+          full_name: formData.full_name,
+          phone_number: formData.phone_number,
+          age: parseInt(formData.age),
+          gender: formData.gender,
+          institution: formData.institution,
+          from_location: formData.from_location,
+          to_location: formData.to_location,
+          leave_home_time: formData.leave_home_time,
+          leave_college_time: formData.leave_college_time,
+          days_of_commute: formData.days_of_commute,
+          prefer_hosting: formData.prefer_hosting,
+          prefer_taking_ride: formData.prefer_taking_ride,
+          vehicle_type: formData.vehicle_type,
+          comfortable_with: formData.comfortable_with,
+          agreed_to_terms: formData.agreed_to_terms,
+          otp_verified: true,
+        },
+        { onConflict: "id" },
+      );
 
       if (insertError) {
         console.error("Error saving profile:", insertError);
