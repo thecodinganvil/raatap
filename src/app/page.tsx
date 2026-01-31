@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
+import AuthRedirect from "@/components/AuthRedirect";
 
 export const metadata: Metadata = {
   title: "Raatap - Community Ride Sharing | Share Rides, Save Costs",
@@ -67,6 +68,7 @@ const homePageSchema = {
 export default function Home() {
   return (
     <>
+      <AuthRedirect />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
