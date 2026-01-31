@@ -213,10 +213,17 @@ export default function DashboardContent() {
       });
 
       if (error) {
-        setOtpError(error.message);
+        // Better error handling for rate limits
+        if (error.message.toLowerCase().includes("rate limit")) {
+          setOtpError(
+            "Too many requests. Please wait a few minutes before trying again.",
+          );
+        } else {
+          setOtpError(error.message);
+        }
       } else {
         setVerificationStep("otp");
-        setResendTimer(60);
+        setResendTimer(120); // Increased to 2 minutes to avoid rate limits
       }
     } catch {
       setOtpError("Failed to send OTP. Please try again.");
