@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         headers: {
           "User-Agent": "RaatapApp/1.0 (https://raatap.com)",
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     console.error("Reverse geocoding error:", error);
     return NextResponse.json(
       { error: "Failed to get address" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

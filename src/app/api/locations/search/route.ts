@@ -21,31 +21,36 @@ export async function GET(request: NextRequest) {
             components: "country:in", // Restrict to India
             types: "establishment|geocode", // Include businesses and addresses
             language: "en",
-          })
+          }),
       );
 
       const googleData = await googleResponse.json();
-      
+
       if (googleData.status === "OK" && googleData.predictions?.length > 0) {
         // Transform Google results to our format
-        const results = googleData.predictions.map((prediction: {
-          place_id: string;
-          description: string;
-          structured_formatting?: {
-            main_text: string;
-            secondary_text: string;
-          };
-        }) => ({
-          place_id: prediction.place_id,
-          display_name: prediction.description,
-          main_text: prediction.structured_formatting?.main_text || "",
-          secondary_text: prediction.structured_formatting?.secondary_text || "",
-        }));
+        const results = googleData.predictions.map(
+          (prediction: {
+            place_id: string;
+            description: string;
+            structured_formatting?: {
+              main_text: string;
+              secondary_text: string;
+            };
+          }) => ({
+            place_id: prediction.place_id,
+            display_name: prediction.description,
+            main_text: prediction.structured_formatting?.main_text || "",
+            secondary_text:
+              prediction.structured_formatting?.secondary_text || "",
+          }),
+        );
         return NextResponse.json(results);
       }
-      
+
       // If Google returns no results or error, fall back to Nominatim
-      console.log("Google Places returned no results, falling back to Nominatim");
+      console.log(
+        "Google Places returned no results, falling back to Nominatim",
+      );
     } catch (error) {
       console.error("Google Places API error:", error);
     }
@@ -83,7 +88,7 @@ export async function GET(request: NextRequest) {
             headers: {
               "User-Agent": "RaatapApp/1.0 (https://raatap.com)",
             },
-          }
+          },
         );
 
         if (!response.ok) continue;
@@ -104,7 +109,7 @@ export async function GET(request: NextRequest) {
     console.error("Location search error:", error);
     return NextResponse.json(
       { error: "Failed to search locations" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
