@@ -77,7 +77,6 @@ export default function Home() {
         {/* Hero Section */}
         <section className="w-full px-6 md:px-12 lg:px-20 py-16 md:py-24">
           <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-8">
-
             {/* Left Content */}
             <div className="flex-1 max-w-xl">
               {/* Main Heading */}
@@ -95,12 +94,15 @@ export default function Home() {
                   Closed Community
                 </span>
                 <span className="text-sm font-medium text-gray-600">•</span>
-                <span className="text-sm font-medium text-gray-600">Daily Commute</span>
+                <span className="text-sm font-medium text-gray-600">
+                  Daily Commute
+                </span>
               </div>
 
               {/* Description */}
               <p className="mt-8 text-lg text-gray-700 leading-relaxed font-normal max-w-lg">
-                Raatap helps verified members coordinate daily rides with people from community
+                Raatap helps verified members coordinate daily rides with people
+                from community
               </p>
 
               {/* CTA Button */}
@@ -113,7 +115,6 @@ export default function Home() {
                   <span className="relative">Become Member</span>
                 </Link>
               </div>
-
             </div>
 
             {/* Right Content - Illustration */}
@@ -129,7 +130,6 @@ export default function Home() {
                 />
               </div>
             </div>
-
           </div>
         </section>
 
@@ -157,13 +157,14 @@ export default function Home() {
                     className="w-full h-full object-contain"
                   />
                 </div>
-                
+
                 {/* Content */}
                 <h3 className="text-2xl font-semibold text-[#1a1a1a] mb-3 text-center">
                   Verify Yourself
                 </h3>
                 <p className="text-gray-600 text-center leading-relaxed">
-                  Verify your account using your email address. Access will be activated after admin verification.
+                  Verify your account using your email address. Access will be
+                  activated after admin verification.
                 </p>
               </div>
 
@@ -179,13 +180,14 @@ export default function Home() {
                     className="w-full h-full object-contain"
                   />
                 </div>
-                
+
                 {/* Content */}
                 <h3 className="text-2xl font-semibold text-[#1a1a1a] mb-3 text-center">
                   Set Your Commute
                 </h3>
                 <p className="text-gray-600 text-center leading-relaxed">
-                  Share your regular commute information. It helps optimize planning and improve efficiency.
+                  Share your regular commute information. It helps optimize
+                  planning and improve efficiency.
                 </p>
               </div>
 
@@ -201,13 +203,14 @@ export default function Home() {
                     className="w-full h-full object-contain"
                   />
                 </div>
-                
+
                 {/* Content */}
                 <h3 className="text-2xl font-semibold text-[#1a1a1a] mb-3 text-center">
                   Form Your Pod
                 </h3>
                 <p className="text-gray-600 text-center leading-relaxed">
-                  Join a pod to connect with a focused group, enable better collaboration and smoother planning.
+                  Join a pod to connect with a focused group, enable better
+                  collaboration and smoother planning.
                 </p>
               </div>
             </div>
