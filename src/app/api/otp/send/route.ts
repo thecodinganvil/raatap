@@ -7,7 +7,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Create Supabase client with service role for OTP storage
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 // Generate a 6-digit OTP
@@ -19,45 +19,43 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, userId } = body;
-    
+
     console.log("OTP Send Request:", { email, userId });
 
     if (!email || !userId) {
       console.log("Missing email or userId");
       return NextResponse.json(
         { error: "Email and userId are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Generate OTP
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    
+
     console.log("Generated OTP:", otp);
 
     // Store OTP in database (upsert to handle resends)
-    const { error: dbError } = await supabase
-      .from("email_otps")
-      .upsert(
-        {
-          user_id: userId,
-          email: email,
-          otp: otp,
-          expires_at: expiresAt.toISOString(),
-          verified: false,
-        },
-        { onConflict: "user_id" }
-      );
+    const { error: dbError } = await supabase.from("email_otps").upsert(
+      {
+        user_id: userId,
+        email: email,
+        otp: otp,
+        expires_at: expiresAt.toISOString(),
+        verified: false,
+      },
+      { onConflict: "user_id" },
+    );
 
     if (dbError) {
       console.error("Database error:", dbError);
       return NextResponse.json(
         { error: `Database error: ${dbError.message}` },
-        { status: 500 }
+        { status: 500 },
       );
     }
-    
+
     console.log("OTP stored in database");
 
     // Send email via Resend
@@ -113,18 +111,23 @@ export async function POST(request: NextRequest) {
       console.error("Email error:", emailError);
       return NextResponse.json(
         { error: `Email error: ${emailError.message}` },
-        { status: 500 }
+        { status: 500 },
       );
     }
-    
+
     console.log("Email sent successfully:", emailData);
 
-    return NextResponse.json({ success: true, message: "OTP sent successfully" });
+    return NextResponse.json({
+      success: true,
+      message: "OTP sent successfully",
+    });
   } catch (error) {
     console.error("Send OTP error:", error);
     return NextResponse.json(
-      { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
-      { status: 500 }
+      {
+        error: `Internal server error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+      { status: 500 },
     );
   }
 }

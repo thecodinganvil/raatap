@@ -1,4 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -13,7 +13,15 @@ const isConfigured = supabaseUrl &&
 const safeUrl = isConfigured ? supabaseUrl : 'https://placeholder.supabase.co';
 const safeKey = isConfigured ? supabaseAnonKey : 'placeholder-key';
 
-export const supabase = createBrowserClient(safeUrl, safeKey);
+// Use standard client with implicit flow - no PKCE issues
+export const supabase = createClient(safeUrl, safeKey, {
+  auth: {
+    flowType: 'implicit',
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});
 
 // Helper to check if Supabase is properly configured
 export const isSupabaseConfigured = () => isConfigured;

@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       console.error("Auth callback error:", error);
       return NextResponse.redirect(
         new URL(
-          `/login?error=${encodeURIComponent(error.message)}`,
+          `/signup?error=${encodeURIComponent(error.message)}`,
           requestUrl.origin,
         ),
       );
@@ -100,7 +100,26 @@ export async function GET(request: Request) {
 
     // Successfully authenticated - redirect to dashboard
     console.log("Auth callback - Redirecting to dashboard");
-    return NextResponse.redirect(new URL(next, requestUrl.origin));
+    
+    // Create redirect response
+    const redirectUrl = new URL(next, requestUrl.origin);
+    const response = NextResponse.redirect(redirectUrl);
+    
+    // Copy all cookies from cookieStore to the response to ensure they persist
+    const allCookies = cookieStore.getAll();
+    for (const cookie of allCookies) {
+      if (cookie.name.includes('supabase') || cookie.name.includes('sb-')) {
+        response.cookies.set(cookie.name, cookie.value, {
+          path: '/',
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24 * 7, // 7 days
+        });
+      }
+    }
+    
+    return response;
   }
 
   // No code present, check for error
@@ -108,12 +127,12 @@ export async function GET(request: Request) {
   if (errorDescription) {
     return NextResponse.redirect(
       new URL(
-        `/login?error=${encodeURIComponent(errorDescription)}`,
+        `/signup?error=${encodeURIComponent(errorDescription)}`,
         requestUrl.origin,
       ),
     );
   }
 
-  // No code or error, redirect to login
-  return NextResponse.redirect(new URL("/login", requestUrl.origin));
+  // No code or error, redirect to signup
+  return NextResponse.redirect(new URL("/signup", requestUrl.origin));
 }

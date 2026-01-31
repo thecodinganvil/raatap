@@ -90,13 +90,49 @@ export default function DashboardContent() {
         return;
       }
 
+      // Small delay to allow cookies to sync after OAuth redirect
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Use getUser() which validates with the server - more reliable after OAuth
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      console.log("Dashboard checkUser - authUser:", authUser?.email, "error:", authError?.message);
+
+      if (authUser) {
+        setUser(authUser);
+        
+        // Check if user has already submitted
+        const { data: existingEntry } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", authUser.id)
+          .single();
+
+        if (existingEntry) {
+          setSubmitted(true);
+        } else if (authUser.user_metadata?.full_name) {
+          setFormData((prev) => ({
+            ...prev,
+            full_name: authUser.user_metadata.full_name,
+          }));
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Fallback: try getSession
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
+      
+      console.log("Dashboard checkUser - session:", session?.user?.email);
+      
       if (session?.user) {
         setUser(session.user);
-
+        
         // Check if user has already submitted
         const { data: existingEntry } = await supabase
           .from("profiles")
@@ -112,21 +148,26 @@ export default function DashboardContent() {
             full_name: session.user.user_metadata.full_name,
           }));
         }
-      } else {
-        router.push("/login");
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      // No user found, redirect to login
+      console.log("No session found, redirecting to login");
+      router.push("/signup");
     };
 
     checkUser();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Dashboard auth state change:", event, session?.user?.email);
+      if (event === "SIGNED_IN" && session?.user) {
         setUser(session.user);
-      } else {
-        router.push("/login");
+        setLoading(false);
+      } else if (event === "SIGNED_OUT") {
+        router.push("/signup");
       }
     });
 
@@ -194,7 +235,10 @@ export default function DashboardContent() {
 
     // Send OTP to institutional email
     if (!institutionalEmail) {
-      setErrors({ ...errors, institutional_email: "Institutional email is required" });
+      setErrors({
+        ...errors,
+        institutional_email: "Institutional email is required",
+      });
       return;
     }
 
@@ -799,7 +843,10 @@ export default function DashboardContent() {
                   onChange={(e) => {
                     setInstitutionalEmail(e.target.value);
                     if (errors.institutional_email)
-                      setErrors((prev) => ({ ...prev, institutional_email: "" }));
+                      setErrors((prev) => ({
+                        ...prev,
+                        institutional_email: "",
+                      }));
                   }}
                   className={`w-full px-5 py-3.5 border-2 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all ${errors.institutional_email ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#6675FF] focus:ring-[#6675FF]/10"}`}
                   required

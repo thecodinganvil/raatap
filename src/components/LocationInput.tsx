@@ -134,11 +134,11 @@ export default function LocationInput({
           const response = await fetch(
             `/api/locations/reverse?lat=${latitude}&lon=${longitude}`,
           );
-          
+
           if (!response.ok) {
             throw new Error("Failed to get address");
           }
-          
+
           const data = await response.json();
 
           if (data.display_name) {
