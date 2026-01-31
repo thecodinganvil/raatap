@@ -56,6 +56,16 @@ export default function DashboardContent() {
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // OTP Verification states
+  const [verificationStep, setVerificationStep] = useState<
+    "email" | "otp" | null
+  >(null);
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
+
   const [formData, setFormData] = useState<FormData>({
     full_name: "",
     phone_number: "",
@@ -183,9 +193,68 @@ export default function DashboardContent() {
       return;
     }
 
-    setSubmitting(true);
+    // Move to email verification step instead of submitting directly
+    setVerificationStep("email");
+    setVerificationEmail(user?.email || "");
+  };
+
+  const handleSendOTP = async () => {
+    if (!verificationEmail) {
+      setOtpError("Please enter your email");
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError("");
 
     try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: verificationEmail,
+      });
+
+      if (error) {
+        // Better error handling for rate limits
+        if (error.message.toLowerCase().includes("rate limit")) {
+          setOtpError(
+            "Too many requests. Please wait a few minutes before trying again.",
+          );
+        } else {
+          setOtpError(error.message);
+        }
+      } else {
+        setVerificationStep("otp");
+        setResendTimer(120); // Increased to 2 minutes to avoid rate limits
+      }
+    } catch {
+      setOtpError("Failed to send OTP. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      setOtpError("Please enter a valid 6-digit code");
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError("");
+
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: verificationEmail,
+        token: otpCode,
+        type: "email",
+      });
+
+      if (verifyError) {
+        setOtpError(verifyError.message);
+        return;
+      }
+
+      // OTP verified, now save the profile
+      setSubmitting(true);
       const { error: insertError } = await supabase.from("profiles").insert({
         id: user?.id,
         full_name: formData.full_name,
@@ -203,23 +272,31 @@ export default function DashboardContent() {
         vehicle_type: formData.vehicle_type,
         comfortable_with: formData.comfortable_with,
         agreed_to_terms: formData.agreed_to_terms,
+        otp_verified: true,
       });
 
       if (insertError) {
         console.error("Error saving:", insertError);
-        alert("Failed to submit. Please try again.");
-        setSubmitting(false);
+        setOtpError("Failed to save profile. Please try again.");
         return;
       }
 
       setSubmitted(true);
-    } catch (err) {
-      console.error("Unexpected error:", err);
-      alert("An unexpected error occurred. Please try again.");
+    } catch {
+      setOtpError("Failed to verify OTP. Please try again.");
     } finally {
+      setOtpLoading(false);
       setSubmitting(false);
     }
   };
+
+  // Timer for resend OTP
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendTimer]);
 
   const toggleArrayValue = (field: "days_of_commute", value: string) => {
     setFormData((prev) => ({
@@ -237,6 +314,233 @@ export default function DashboardContent() {
         <div className="animate-pulse flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-[#6675FF]/20"></div>
           <p className="text-gray-500">Loading...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Email OTP Verification Screen
+  if (verificationStep === "email" || verificationStep === "otp") {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-white to-[#e8ebff] flex items-center justify-center px-4 py-12">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="relative w-full max-w-md">
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 border border-white/50 p-8 md:p-10">
+            {verificationStep === "email" ? (
+              <>
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#6675FF]/10 flex items-center justify-center">
+                    <svg
+                      className="w-8 h-8 text-[#6675FF]"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-semibold text-[#171717] mb-2">
+                    Verify Your Email
+                  </h2>
+                  <p className="text-gray-500 text-sm">
+                    We&apos;ll send an OTP to verify your email address
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={verificationEmail}
+                      onChange={(e) => {
+                        setVerificationEmail(e.target.value);
+                        setOtpError("");
+                      }}
+                      placeholder="Enter your email"
+                      className="w-full px-5 py-3.5 border-2 border-gray-200 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:ring-4 focus:ring-[#6675FF]/10 transition-all"
+                    />
+                  </div>
+
+                  {otpError && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm text-red-600">{otpError}</p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleSendOTP}
+                    disabled={otpLoading}
+                    className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {otpLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg
+                          className="animate-spin w-5 h-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Sending...
+                      </span>
+                    ) : (
+                      "Send OTP"
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setVerificationStep(null)}
+                    className="w-full py-2 text-gray-500 font-medium hover:text-[#6675FF] transition-colors"
+                  >
+                    Back to form
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#6675FF]/10 flex items-center justify-center">
+                    <svg
+                      className="w-8 h-8 text-[#6675FF]"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-semibold text-[#171717] mb-2">
+                    Enter OTP
+                  </h2>
+                  <p className="text-gray-500 text-sm">
+                    Check your email{" "}
+                    <span className="font-medium text-[#6675FF]">
+                      {verificationEmail}
+                    </span>{" "}
+                    for the 6-digit code
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
+                      One-Time Password
+                    </label>
+                    <input
+                      type="text"
+                      value={otpCode}
+                      onChange={(e) => {
+                        const value = e.target.value
+                          .replace(/[^0-9]/g, "")
+                          .slice(0, 8);
+                        setOtpCode(value);
+                        setOtpError("");
+                      }}
+                      placeholder="00000000"
+                      maxLength={8}
+                      className="w-full px-5 py-4 border-2 border-gray-200 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:ring-4 focus:ring-[#6675FF]/10 transition-all text-center text-2xl tracking-[0.5em] font-mono"
+                    />
+                  </div>
+
+                  {otpError && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm text-red-600">{otpError}</p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleVerifyOTP}
+                    disabled={otpLoading || otpCode.length !== 8}
+                    className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {otpLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg
+                          className="animate-spin w-5 h-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Verifying...
+                      </span>
+                    ) : (
+                      "Verify & Complete"
+                    )}
+                  </button>
+
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => {
+                        setVerificationStep("email");
+                        setOtpCode("");
+                        setOtpError("");
+                      }}
+                      disabled={otpLoading}
+                      className="w-full py-2 text-[#6675FF] font-medium hover:underline disabled:opacity-50"
+                    >
+                      Change Email
+                    </button>
+
+                    {resendTimer > 0 ? (
+                      <p className="text-center text-sm text-gray-500">
+                        Resend OTP in {resendTimer}s
+                      </p>
+                    ) : (
+                      <button
+                        onClick={handleSendOTP}
+                        disabled={otpLoading}
+                        className="w-full py-2 text-gray-500 font-medium hover:text-[#6675FF] transition-colors disabled:opacity-50"
+                      >
+                        Resend OTP
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </main>
     );
