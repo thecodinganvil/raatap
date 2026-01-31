@@ -91,7 +91,7 @@ export default function DashboardContent() {
       }
 
       // Small delay to allow cookies to sync after OAuth redirect
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Use getUser() which validates with the server - more reliable after OAuth
       const {
@@ -99,11 +99,16 @@ export default function DashboardContent() {
         error: authError,
       } = await supabase.auth.getUser();
 
-      console.log("Dashboard checkUser - authUser:", authUser?.email, "error:", authError?.message);
+      console.log(
+        "Dashboard checkUser - authUser:",
+        authUser?.email,
+        "error:",
+        authError?.message,
+      );
 
       if (authUser) {
         setUser(authUser);
-        
+
         // Check if user has already submitted
         const { data: existingEntry } = await supabase
           .from("profiles")
@@ -127,12 +132,12 @@ export default function DashboardContent() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      
+
       console.log("Dashboard checkUser - session:", session?.user?.email);
-      
+
       if (session?.user) {
         setUser(session.user);
-        
+
         // Check if user has already submitted
         const { data: existingEntry } = await supabase
           .from("profiles")

@@ -61,11 +61,11 @@ export default function SignupForm() {
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+        if (key && (key.includes("supabase") || key.includes("sb-"))) {
           keysToRemove.push(key);
         }
       }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
 
       // Use implicit flow - redirect back to signup page, tokens come in URL hash
       const { error } = await supabase.auth.signInWithOAuth({

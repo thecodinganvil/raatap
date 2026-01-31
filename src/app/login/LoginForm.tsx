@@ -61,11 +61,11 @@ export default function LoginForm() {
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+        if (key && (key.includes("supabase") || key.includes("sb-"))) {
           keysToRemove.push(key);
         }
       }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -169,7 +169,7 @@ export default function LoginForm() {
           </button>
 
           {/* Features List */}
-          
+
           {/* Sign Up Link */}
           <p className="text-center text-sm text-gray-600 mt-8">
             Don&apos;t have an account?{" "}
