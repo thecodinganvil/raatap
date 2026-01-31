@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import LocationInput from "@/components/LocationInput";
 
 interface FormData {
   // Step 1 fields
@@ -892,52 +893,38 @@ export default function DashboardContent() {
                     <label className="block text-xs font-medium text-gray-600 mb-1.5 ml-1">
                       From (Home/Start Location)
                     </label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Kukatpally, Hyderabad"
+                    <LocationInput
                       value={formData.from_location}
-                      onChange={(e) => {
+                      onChange={(value) => {
                         setFormData((prev) => ({
                           ...prev,
-                          from_location: e.target.value,
+                          from_location: value,
                         }));
                         if (errors.from_location)
                           setErrors((prev) => ({ ...prev, from_location: "" }));
                       }}
-                      className={`w-full px-4 py-3 border-2 rounded-xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all ${errors.from_location ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#6675FF] focus:ring-[#6675FF]/10"}`}
-                      required
+                      placeholder="e.g., Kukatpally, Hyderabad"
+                      error={errors.from_location}
                     />
-                    {errors.from_location && (
-                      <p className="text-red-500 text-xs mt-1 ml-1">
-                        {errors.from_location}
-                      </p>
-                    )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5 ml-1">
                       To (College/Destination)
                     </label>
-                    <input
-                      type="text"
-                      placeholder="e.g., CBIT, Gandipet"
+                    <LocationInput
                       value={formData.to_location}
-                      onChange={(e) => {
+                      onChange={(value) => {
                         setFormData((prev) => ({
                           ...prev,
-                          to_location: e.target.value,
+                          to_location: value,
                         }));
                         if (errors.to_location)
                           setErrors((prev) => ({ ...prev, to_location: "" }));
                       }}
-                      className={`w-full px-4 py-3 border-2 rounded-xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all ${errors.to_location ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#6675FF] focus:ring-[#6675FF]/10"}`}
-                      required
+                      placeholder="e.g., CBIT, Gandipet"
+                      error={errors.to_location}
                     />
-                    {errors.to_location && (
-                      <p className="text-red-500 text-xs mt-1 ml-1">
-                        {errors.to_location}
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
