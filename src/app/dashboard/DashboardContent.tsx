@@ -59,6 +59,7 @@ export default function DashboardContent() {
 
   // OTP Verification states
   const [verificationStep, setVerificationStep] = useState<"otp" | null>(null);
+  const [hasInstitutionalEmail, setHasInstitutionalEmail] = useState<boolean | null>(null);
   const [institutionalEmail, setInstitutionalEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
@@ -211,15 +212,8 @@ export default function DashboardContent() {
     setCurrentStep(2);
   };
 
-  const handleBack = () => {
-    setCurrentStep(1);
-    setErrors({});
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validate step 2
+  const handleNextToStep3 = () => {
+    // Validate step 2 fields
     const newErrors: Record<string, string> = {};
 
     if (!formData.prefer_hosting && !formData.prefer_taking_ride) {
@@ -237,12 +231,34 @@ export default function DashboardContent() {
     if (Object.keys(newErrors).length > 0) {
       return;
     }
+    setCurrentStep(3);
+  };
 
-    // Send OTP to institutional email
+  const handleBack = () => {
+    if (currentStep === 3) {
+      setCurrentStep(2);
+    } else {
+      setCurrentStep(1);
+    }
+    setErrors({});
+  };
+
+  const handleSendOTP = async () => {
+    // Validate institutional email
     if (!institutionalEmail) {
       setErrors({
         ...errors,
         institutional_email: "Institutional email is required",
+      });
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(institutionalEmail)) {
+      setErrors({
+        ...errors,
+        institutional_email: "Please enter a valid email address",
       });
       return;
     }
@@ -390,6 +406,54 @@ export default function DashboardContent() {
     }
   };
 
+  const handleSubmitWithoutEmail = async () => {
+    setSubmitting(true);
+    setOtpError("");
+
+    try {
+      const { error: insertError } = await supabase.from("profiles").upsert(
+        {
+          id: user?.id,
+          full_name: formData.full_name,
+          phone_number: formData.phone_number,
+          age: parseInt(formData.age),
+          gender: formData.gender,
+          institution: formData.institution,
+          institutional_email: null,
+          from_location: formData.from_location,
+          to_location: formData.to_location,
+          leave_home_time: formData.leave_home_time,
+          leave_college_time: formData.leave_college_time,
+          days_of_commute: formData.days_of_commute,
+          prefer_hosting: formData.prefer_hosting,
+          prefer_taking_ride: formData.prefer_taking_ride,
+          vehicle_type: formData.vehicle_type,
+          comfortable_with: formData.comfortable_with,
+          agreed_to_terms: formData.agreed_to_terms,
+          email_verified: false,
+        },
+        { onConflict: "id" },
+      );
+
+      if (insertError) {
+        console.error("Error saving profile:", insertError);
+        setOtpError(
+          `Failed to save profile: ${insertError.message}. Please try again.`,
+        );
+        setSubmitting(false);
+        return;
+      }
+
+      console.log("Profile saved successfully (without email)!");
+      setSubmitting(false);
+      setSubmitted(true);
+    } catch (err) {
+      console.error("Error saving profile:", err);
+      setOtpError("Failed to save profile. Please try again.");
+      setSubmitting(false);
+    }
+  };
+
   // Timer for resend OTP
   useEffect(() => {
     if (resendTimer > 0) {
@@ -414,139 +478,6 @@ export default function DashboardContent() {
         <div className="animate-pulse flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-[#6675FF]/20"></div>
           <p className="text-gray-500">Loading...</p>
-        </div>
-      </main>
-    );
-  }
-
-  // Email OTP Verification Screen
-  if (verificationStep === "otp") {
-    return (
-      <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-white to-[#e8ebff] flex items-center justify-center px-4 py-12">
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
-          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
-        </div>
-
-        <div className="relative w-full max-w-md">
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 border border-white/50 p-8 md:p-10">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#6675FF]/10 flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-[#6675FF]"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-semibold text-[#171717] mb-2">
-                Verify Your Email
-              </h2>
-              <p className="text-gray-500 text-sm">
-                We sent a 6-digit code to{" "}
-                <span className="font-medium text-[#6675FF]">
-                  {institutionalEmail}
-                </span>
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
-                  Enter 6-digit code
-                </label>
-                <input
-                  type="text"
-                  value={otpCode}
-                  onChange={(e) => {
-                    const value = e.target.value
-                      .replace(/[^0-9]/g, "")
-                      .slice(0, 6);
-                    setOtpCode(value);
-                    setOtpError("");
-                  }}
-                  placeholder="000000"
-                  maxLength={6}
-                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:ring-4 focus:ring-[#6675FF]/10 transition-all text-center text-2xl tracking-[0.5em] font-mono"
-                  autoFocus
-                />
-              </div>
-
-              {otpError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-sm text-red-600">{otpError}</p>
-                </div>
-              )}
-
-              <button
-                onClick={handleVerifyOTP}
-                disabled={otpLoading || otpCode.length !== 6}
-                className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {otpLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg
-                      className="animate-spin w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Verifying...
-                  </span>
-                ) : (
-                  "Verify & Complete"
-                )}
-              </button>
-
-              <div className="flex flex-col gap-2">
-                {resendTimer > 0 ? (
-                  <p className="text-center text-sm text-gray-500">
-                    Resend OTP in {resendTimer}s
-                  </p>
-                ) : (
-                  <button
-                    onClick={handleResendOTP}
-                    disabled={otpLoading}
-                    className="w-full py-2 text-[#6675FF] font-medium hover:underline disabled:opacity-50"
-                  >
-                    Resend OTP
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    setVerificationStep(null);
-                    setOtpCode("");
-                    setOtpError("");
-                  }}
-                  disabled={otpLoading}
-                  className="w-full py-2 text-gray-500 font-medium hover:text-[#6675FF] transition-colors disabled:opacity-50"
-                >
-                  Back to form
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </main>
     );
@@ -615,16 +546,19 @@ export default function DashboardContent() {
           {/* Progress indicator */}
           <div className="flex items-center justify-center gap-2 mb-8">
             <div
-              className={`w-3 h-3 rounded-full transition-all ${currentStep === 1 ? "bg-[#6675FF] w-8" : "bg-gray-300"}`}
+              className={`w-3 h-3 rounded-full transition-all ${currentStep === 1 ? "bg-[#6675FF] w-8" : currentStep > 1 ? "bg-[#6675FF]" : "bg-gray-300"}`}
             ></div>
             <div
-              className={`w-3 h-3 rounded-full transition-all ${currentStep === 2 ? "bg-[#6675FF] w-8" : "bg-gray-300"}`}
+              className={`w-3 h-3 rounded-full transition-all ${currentStep === 2 ? "bg-[#6675FF] w-8" : currentStep > 2 ? "bg-[#6675FF]" : "bg-gray-300"}`}
+            ></div>
+            <div
+              className={`w-3 h-3 rounded-full transition-all ${currentStep === 3 ? "bg-[#6675FF] w-8" : "bg-gray-300"}`}
             ></div>
           </div>
 
           {/* Back Button & Subtitle */}
           <div className="flex items-center gap-3 mb-6">
-            {currentStep === 2 && (
+            {(currentStep === 2 || currentStep === 3) && (
               <button
                 onClick={handleBack}
                 className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
@@ -647,7 +581,9 @@ export default function DashboardContent() {
             <h2 className="text-lg font-medium text-gray-700 flex-1">
               {currentStep === 1
                 ? "Complete your profile for membership"
-                : "Set your preferences"}
+                : currentStep === 2
+                ? "Set your preferences"
+                : "Verify your institutional email"}
             </h2>
           </div>
 
@@ -833,35 +769,7 @@ export default function DashboardContent() {
                 )}
               </div>
 
-              {/* Institutional Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
-                  Institutional Email
-                  <span className="text-xs text-gray-500 font-normal ml-2">
-                    (We'll verify this)
-                  </span>
-                </label>
-                <input
-                  type="email"
-                  placeholder="e.g., yourname@cbit.ac.in"
-                  value={institutionalEmail}
-                  onChange={(e) => {
-                    setInstitutionalEmail(e.target.value);
-                    if (errors.institutional_email)
-                      setErrors((prev) => ({
-                        ...prev,
-                        institutional_email: "",
-                      }));
-                  }}
-                  className={`w-full px-5 py-3.5 border-2 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all ${errors.institutional_email ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#6675FF] focus:ring-[#6675FF]/10"}`}
-                  required
-                />
-                {errors.institutional_email && (
-                  <p className="text-red-500 text-xs mt-1 ml-1">
-                    {errors.institutional_email}
-                  </p>
-                )}
-              </div>
+
 
               {/* Route Section */}
               <div className="bg-gradient-to-r from-[#6675FF]/5 to-transparent rounded-2xl p-5 border border-[#6675FF]/20">
@@ -1027,7 +935,7 @@ export default function DashboardContent() {
 
           {/* Step 2: Preferences */}
           {currentStep === 2 && (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-6">
               {/* You prefer */}
               <div
                 className={`bg-gradient-to-r from-[#6675FF]/5 to-transparent rounded-2xl p-5 border ${errors.preference ? "border-red-300" : "border-[#6675FF]/20"}`}
@@ -1257,7 +1165,6 @@ export default function DashboardContent() {
                         setErrors((prev) => ({ ...prev, agreed_to_terms: "" }));
                     }}
                     className="w-5 h-5 text-[#6675FF] border-2 border-gray-300 rounded mt-0.5 focus:ring-2 focus:ring-[#6675FF]/50"
-                    required
                   />
                   <span className="text-sm text-gray-700 leading-relaxed">
                     I agree to commute with my friends and follow community
@@ -1272,38 +1179,360 @@ export default function DashboardContent() {
               </div>
 
               <button
-                type="submit"
-                disabled={submitting}
-                className="w-full mt-6 py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold text-lg rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                onClick={handleNextToStep3}
+                className="w-full mt-6 py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold text-lg rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
-                {submitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg
-                      className="animate-spin w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Submitting...
-                  </span>
-                ) : (
-                  "Complete Verification"
-                )}
+                Continue
               </button>
-            </form>
+            </div>
+          )}
+
+          {/* Step 3: Email Verification */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              {/* First ask if user has institutional email */}
+              {hasInstitutionalEmail === null && (
+                <>
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#6675FF]/10 flex items-center justify-center">
+                      <svg
+                        className="w-8 h-8 text-[#6675FF]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                      Do you have an institutional email?
+                    </h3>
+                    <p className="text-gray-500 text-sm">
+                      An institutional email helps verify your college affiliation
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => setHasInstitutionalEmail(true)}
+                      className="py-4 px-6 border-2 border-[#6675FF] text-[#6675FF] font-semibold text-lg rounded-2xl hover:bg-[#6675FF] hover:text-white transition-all hover:-translate-y-0.5 active:translate-y-0"
+                    >
+                      Yes, I have one
+                    </button>
+                    <button
+                      onClick={() => setHasInstitutionalEmail(false)}
+                      className="py-4 px-6 border-2 border-gray-300 text-gray-600 font-semibold text-lg rounded-2xl hover:border-gray-400 hover:bg-gray-50 transition-all hover:-translate-y-0.5 active:translate-y-0"
+                    >
+                      No, I don&apos;t
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* User doesn't have institutional email - confirm and submit */}
+              {hasInstitutionalEmail === false && (
+                <>
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center">
+                      <svg
+                        className="w-8 h-8 text-amber-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                      No problem!
+                    </h3>
+                    <p className="text-gray-500 text-sm">
+                      You can still join. You can verify your email later from your profile.
+                    </p>
+                  </div>
+
+                  {otpError && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm text-red-600">{otpError}</p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleSubmitWithoutEmail}
+                    disabled={submitting}
+                    className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold text-lg rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg
+                          className="animate-spin w-5 h-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Completing...
+                      </span>
+                    ) : (
+                      "Complete Registration"
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setHasInstitutionalEmail(null)}
+                    disabled={submitting}
+                    className="w-full py-2 text-gray-500 font-medium hover:text-[#6675FF] transition-colors disabled:opacity-50"
+                  >
+                    Go back
+                  </button>
+                </>
+              )}
+
+              {/* User has institutional email - show email input */}
+              {hasInstitutionalEmail === true && verificationStep !== "otp" && (
+                <>
+                  <div className="text-center mb-4">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#6675FF]/10 flex items-center justify-center">
+                      <svg
+                        className="w-8 h-8 text-[#6675FF]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                    <p className="text-gray-500 text-sm">
+                      Enter your institutional email to receive a verification code
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
+                      Institutional Email
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="e.g., yourname@cbit.ac.in"
+                      value={institutionalEmail}
+                      onChange={(e) => {
+                        setInstitutionalEmail(e.target.value);
+                        if (errors.institutional_email)
+                          setErrors((prev) => ({
+                            ...prev,
+                            institutional_email: "",
+                          }));
+                        setOtpError("");
+                      }}
+                      className={`w-full px-5 py-3.5 border-2 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all ${errors.institutional_email ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#6675FF] focus:ring-[#6675FF]/10"}`}
+                    />
+                    {errors.institutional_email && (
+                      <p className="text-red-500 text-xs mt-1 ml-1">
+                        {errors.institutional_email}
+                      </p>
+                    )}
+                  </div>
+
+                  {otpError && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm text-red-600">{otpError}</p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleSendOTP}
+                    disabled={otpLoading}
+                    className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold text-lg rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {otpLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg
+                          className="animate-spin w-5 h-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Sending...
+                      </span>
+                    ) : (
+                      "Send Verification Code"
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setHasInstitutionalEmail(null);
+                      setInstitutionalEmail("");
+                      setOtpError("");
+                    }}
+                    disabled={otpLoading}
+                    className="w-full py-2 text-gray-500 font-medium hover:text-[#6675FF] transition-colors disabled:opacity-50"
+                  >
+                    Go back
+                  </button>
+                </>
+              )}
+
+              {/* OTP sent - show OTP input */}
+              {hasInstitutionalEmail === true && verificationStep === "otp" && (
+                <>
+                  <div className="text-center mb-4">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+                      <svg
+                        className="w-8 h-8 text-green-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </div>
+                    <p className="text-gray-700 font-medium mb-1">
+                      Code sent!
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      We sent a 6-digit code to{" "}
+                      <span className="font-medium text-[#6675FF]">
+                        {institutionalEmail}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
+                      Enter 6-digit code
+                    </label>
+                    <input
+                      type="text"
+                      value={otpCode}
+                      onChange={(e) => {
+                        const value = e.target.value
+                          .replace(/[^0-9]/g, "")
+                          .slice(0, 6);
+                        setOtpCode(value);
+                        setOtpError("");
+                      }}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="w-full px-5 py-4 border-2 border-gray-200 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#6675FF] focus:ring-4 focus:ring-[#6675FF]/10 transition-all text-center text-2xl tracking-[0.5em] font-mono"
+                      autoFocus
+                    />
+                  </div>
+
+                  {otpError && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm text-red-600">{otpError}</p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleVerifyOTP}
+                    disabled={otpLoading || otpCode.length !== 6}
+                    className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold text-lg rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {otpLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg
+                          className="animate-spin w-5 h-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Verifying...
+                      </span>
+                    ) : (
+                      "Verify & Complete"
+                    )}
+                  </button>
+
+                  <div className="flex flex-col gap-2">
+                    {resendTimer > 0 ? (
+                      <p className="text-center text-sm text-gray-500">
+                        Resend code in {resendTimer}s
+                      </p>
+                    ) : (
+                      <button
+                        onClick={handleResendOTP}
+                        disabled={otpLoading}
+                        className="w-full py-2 text-[#6675FF] font-medium hover:underline disabled:opacity-50"
+                      >
+                        Resend Code
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setVerificationStep(null);
+                        setOtpCode("");
+                        setOtpError("");
+                      }}
+                      disabled={otpLoading}
+                      className="w-full py-2 text-gray-500 font-medium hover:text-[#6675FF] transition-colors disabled:opacity-50"
+                    >
+                      Change email
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
