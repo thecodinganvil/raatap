@@ -15,6 +15,10 @@ interface FormData {
   institution: string;
   from_location: string;
   to_location: string;
+  from_lat: number | null;
+  from_lng: number | null;
+  to_lat: number | null;
+  to_lng: number | null;
   leave_home_time: string;
   leave_college_time: string;
   days_of_commute: string[];
@@ -74,6 +78,10 @@ export default function DashboardContent() {
     institution: "",
     from_location: "",
     to_location: "",
+    from_lat: null,
+    from_lng: null,
+    to_lat: null,
+    to_lng: null,
     leave_home_time: "",
     leave_college_time: "",
     days_of_commute: [],
@@ -197,6 +205,10 @@ export default function DashboardContent() {
       newErrors.from_location = "Start location is required";
     if (!formData.to_location)
       newErrors.to_location = "Destination is required";
+    if (!formData.from_lat || !formData.from_lng)
+      newErrors.from_location = "Please select a valid location from the suggestions";
+    if (!formData.to_lat || !formData.to_lng)
+      newErrors.to_location = "Please select a valid location from the suggestions";
     if (!formData.leave_home_time)
       newErrors.leave_home_time = "Leave home time is required";
     if (!formData.leave_college_time)
@@ -365,6 +377,10 @@ export default function DashboardContent() {
           institutional_email: institutionalEmail,
           from_location: formData.from_location,
           to_location: formData.to_location,
+          from_lat: formData.from_lat,
+          from_lng: formData.from_lng,
+          to_lat: formData.to_lat,
+          to_lng: formData.to_lng,
           leave_home_time: formData.leave_home_time,
           leave_college_time: formData.leave_college_time,
           days_of_commute: formData.days_of_commute,
@@ -422,6 +438,10 @@ export default function DashboardContent() {
           institutional_email: null,
           from_location: formData.from_location,
           to_location: formData.to_location,
+          from_lat: formData.from_lat,
+          from_lng: formData.from_lng,
+          to_lat: formData.to_lat,
+          to_lng: formData.to_lng,
           leave_home_time: formData.leave_home_time,
           leave_college_time: formData.leave_college_time,
           days_of_commute: formData.days_of_commute,
@@ -811,6 +831,13 @@ export default function DashboardContent() {
                         if (errors.from_location)
                           setErrors((prev) => ({ ...prev, from_location: "" }));
                       }}
+                      onLocationSelect={(location) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          from_lat: location.lat,
+                          from_lng: location.lng,
+                        }));
+                      }}
                       placeholder="e.g., Kukatpally, Hyderabad"
                       error={errors.from_location}
                     />
@@ -829,6 +856,13 @@ export default function DashboardContent() {
                         }));
                         if (errors.to_location)
                           setErrors((prev) => ({ ...prev, to_location: "" }));
+                      }}
+                      onLocationSelect={(location) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          to_lat: location.lat,
+                          to_lng: location.lng,
+                        }));
                       }}
                       placeholder="e.g., CBIT, Gandipet"
                       error={errors.to_location}
