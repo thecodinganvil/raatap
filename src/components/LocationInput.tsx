@@ -5,6 +5,11 @@ import { useState, useEffect, useRef } from "react";
 interface LocationInputProps {
   value: string;
   onChange: (value: string) => void;
+  onLocationSelect?: (location: {
+    address: string;
+    lat: number;
+    lng: number;
+  }) => void;
   placeholder: string;
   icon?: "start" | "end";
   required?: boolean;
@@ -13,15 +18,18 @@ interface LocationInputProps {
 }
 
 interface SearchResult {
-  place_id: number;
+  place_id: string | number;
   display_name: string;
-  lat: string;
-  lon: string;
+  lat?: string;
+  lon?: string;
+  main_text?: string;
+  secondary_text?: string;
 }
 
 export default function LocationInput({
   value,
   onChange,
+  onLocationSelect,
   placeholder,
   icon = "start",
   required = false,
@@ -103,7 +111,7 @@ export default function LocationInput({
     }, 300);
   };
 
-  const handleSelectSuggestion = (suggestion: SearchResult) => {
+  const handleSelectSuggestion = async (suggestion: SearchResult) => {
     // Clean up the display name (remove country at the end)
     const cleanName = suggestion.display_name
       .split(", ")
@@ -114,6 +122,34 @@ export default function LocationInput({
     onChange(cleanName);
     setSuggestions([]);
     setShowSuggestions(false);
+
+    // If we have lat/lng already (from Nominatim), use them
+    if (suggestion.lat && suggestion.lon) {
+      onLocationSelect?.({
+        address: cleanName,
+        lat: parseFloat(suggestion.lat),
+        lng: parseFloat(suggestion.lon),
+      });
+    } 
+    // Otherwise, geocode the place_id (from Google Places)
+    else if (suggestion.place_id && typeof suggestion.place_id === 'string') {
+      try {
+        const response = await fetch(
+          `/api/locations/geocode?place_id=${encodeURIComponent(suggestion.place_id)}`
+        );
+
+        if (response.ok) {
+          const geocodeData = await response.json();
+          onLocationSelect?.({
+            address: cleanName,
+            lat: geocodeData.lat,
+            lng: geocodeData.lng,
+          });
+        }
+      } catch (error) {
+        console.error("Geocoding failed:", error);
+      }
+    }
   };
 
   const getCurrentLocation = () => {
@@ -149,6 +185,13 @@ export default function LocationInput({
               .join(", ");
             setInputValue(cleanName);
             onChange(cleanName);
+            
+            // Provide lat/lng to parent
+            onLocationSelect?.({
+              address: cleanName,
+              lat: latitude,
+              lng: longitude,
+            });
           } else if (data.error) {
             // API returned an error
             console.error("Reverse geocoding API error:", data.error);
@@ -165,6 +208,20 @@ export default function LocationInput({
           const coordString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
           setInputValue(coordString);
           onChange(coordString);
+          
+          // Provide lat/lng to parent
+          onLocationSelect?.({
+            address: coordString,
+            lat: latitude,
+            lng: longitude,
+          });
+            
+            // Provide lat/lng to parent
+            onLocationSelect?.({
+              address: coordString,
+              lat: latitude,
+              lng: longitude,
+            });
         } finally {
           setIsGettingLocation(false);
         }
