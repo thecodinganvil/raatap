@@ -13,7 +13,7 @@ AS $$
 DECLARE
     user_profile RECORD;
     new_ride_template UUID;
-    role_check TEXT;
+    role_check BOOLEAN;
 BEGIN
     -- Validate user role (must be host)
     SELECT prefer_hosting INTO role_check 
@@ -85,7 +85,7 @@ BEGIN
     ) RETURNING id INTO new_ride_template;
     
     -- Trigger matching for existing ride_requests
-    PERFORM generate_match_suggestions_for_ride_template(new_ride_template);
+    -- PERFORM generate_match_suggestions_for_ride_template(new_ride_template);
     
     RETURN json_build_object(
         'success', true,
@@ -93,11 +93,7 @@ BEGIN
         'message', 'Ride template created successfully'
     );
     
-EXCEPTION WHEN OTHERS THEN
-    RETURN json_build_object(
-        'success', false, 
-        'error', SQLERRM
-    );
+    -- (No exception handling for debug purposes)
 END;
 $$;
 
@@ -116,7 +112,7 @@ AS $$
 DECLARE
     user_profile RECORD;
     new_ride_request UUID;
-    role_check TEXT;
+    role_check BOOLEAN;
 BEGIN
     -- Validate user role (must be rider)
     SELECT prefer_taking_ride INTO role_check 
@@ -180,7 +176,7 @@ BEGIN
     ) RETURNING id INTO new_ride_request;
     
     -- Trigger matching for existing ride_templates
-    PERFORM generate_match_suggestions_for_ride_request(new_ride_request);
+    -- PERFORM generate_match_suggestions_for_ride_request(new_ride_request);
     
     RETURN json_build_object(
         'success', true,
@@ -188,10 +184,6 @@ BEGIN
         'message', 'Ride request created successfully'
     );
     
-EXCEPTION WHEN OTHERS THEN
-    RETURN json_build_object(
-        'success', false, 
-        'error', SQLERRM
-    );
+    -- (No exception handling for debug purposes)
 END;
 $$;

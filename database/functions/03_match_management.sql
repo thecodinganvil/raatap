@@ -197,17 +197,21 @@ BEGIN
     -- Verify match ownership based on role
     IF user_role = 'host' THEN
         SELECT ms.*, rt.host_id
-        INTO match_record, is_owner
+        INTO match_record
         FROM match_suggestions ms
         JOIN ride_templates rt ON ms.ride_template_id = rt.id
         WHERE ms.id = match_id AND rt.host_id = user_id;
         
+        is_owner := FOUND;
+        
     ELSIF user_role = 'rider' THEN
         SELECT ms.*, rr.rider_id
-        INTO match_record, is_owner
+        INTO match_record
         FROM match_suggestions ms
         JOIN ride_requests rr ON ms.ride_request_id = rr.id
         WHERE ms.id = match_id AND rr.rider_id = user_id;
+        
+        is_owner := FOUND;
         
     ELSE
         RETURN json_build_object('success', false, 'error', 'Invalid user role');

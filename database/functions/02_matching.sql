@@ -64,14 +64,14 @@ BEGIN
         RETURN json_build_object('compatible', false, 'reason', 'Vehicle preference mismatch');
     END IF;
     
-    -- Create host route line (from → to)
-    host_route_line := ST_MakeLine(template.from_point, template.to_point);
+    -- Create host route line (from → to) (cast geography to geometry for ST_MakeLine)
+    host_route_line := ST_MakeLine(template.from_point::geometry, template.to_point::geometry);
     
-    -- Calculate pickup distance from rider pickup to host route
+    -- Calculate pickup distance from rider pickup to host route (cast to geography for meters)
     pickup_distance := ST_Distance(
-        ride_request.pickup_point,
-        host_route_line,
-        true -- use_spheroid for accurate distance in meters
+        ride_request.pickup_point::geography,
+        host_route_line::geography,
+        true -- use_spheroid
     );
     
     -- Check if pickup is within max detour

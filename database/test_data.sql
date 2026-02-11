@@ -14,7 +14,7 @@
 -- Create Host Profile
 INSERT INTO public.profiles (
   id, 
-  email, 
+  full_name,
   prefer_hosting, 
   from_location, from_lat, from_lng, 
   to_location, to_lat, to_lng, 
@@ -22,7 +22,7 @@ INSERT INTO public.profiles (
   days_of_commute
 ) VALUES (
   '15fa116f-ae62-4c99-b3e6-f39a62c0a742', 
-  'host@example.com', 
+  'Host User', 
   true, 
   'Connaught Place, New Delhi', 28.6304, 77.2177, 
   'Gurugram Cyber City', 28.4950, 77.0895, 
@@ -36,7 +36,7 @@ SET prefer_hosting = true,
 -- Create Rider Profile
 INSERT INTO public.profiles (
   id, 
-  email, 
+  full_name,
   prefer_taking_ride, 
   from_location, from_lat, from_lng, 
   to_location, to_lat, to_lng, 
@@ -44,7 +44,7 @@ INSERT INTO public.profiles (
   days_of_commute
 ) VALUES (
   'd0fa728d-cec7-43b0-b82d-4eac6d298643', 
-  'rider@example.com', 
+  'Rider User', 
   true, 
   'India Gate, New Delhi', 28.6129, 77.2295, -- Near CP
   'Udyog Vihar, Gurugram', 28.5020, 77.0850, -- Near Cyber City
@@ -62,7 +62,7 @@ SET prefer_taking_ride = true,
 -- This calls the PL/pgSQL function to create a ride template
 SELECT create_ride_template_from_profile(
     '15fa116f-ae62-4c99-b3e6-f39a62c0a742', -- Host UUID
-    'Sedan',          -- Vehicle Type
+    '4_wheeler',      -- Vehicle Type
     3,                -- Seats
     5000,             -- Max Detour (meters)
     '18:00:00'        -- Return Time
