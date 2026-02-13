@@ -61,6 +61,9 @@ export default function DashboardContent() {
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [matchSuggestions, setMatchSuggestions] = useState<any[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
   // OTP Verification states
   const [verificationStep, setVerificationStep] = useState<"otp" | null>(null);
   const [hasInstitutionalEmail, setHasInstitutionalEmail] = useState<boolean | null>(null);
@@ -91,6 +94,79 @@ export default function DashboardContent() {
     comfortable_with: "",
     agreed_to_terms: false,
   });
+
+  const handleAcceptMatch = async (matchId: string, riderName: string) => {
+    try {
+      const response = await fetch("/api/matches/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          matchId, 
+          hostId: user?.id 
+        }),
+      });
+
+      if (response.ok) {
+        // Optimistic update or refetch
+        alert(`You accepted the request from ${riderName}! Contact info would be revealed here.`);
+        // In a real app, we might move to a "Matched" tab or show a modal with details
+        // For now, let's just remove it from the list to show "We are matching you up" or next match
+        setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
+      } else {
+        console.error("Failed to accept match");
+      }
+    } catch (error) {
+      console.error("Error accepting match:", error);
+    }
+  };
+
+  const handleSkipMatch = async (matchId: string) => {
+    try {
+      const response = await fetch("/api/matches/skip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          matchId, 
+          userId: user?.id,
+          userRole: 'host'
+        }),
+      });
+
+      if (response.ok) {
+        setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
+      } else {
+        console.error("Failed to skip match");
+      }
+    } catch (error) {
+      console.error("Error skipping match:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (submitted && user?.id) {
+      const fetchSuggestions = async () => {
+        setLoadingSuggestions(true);
+        try {
+          const response = await fetch("/api/matches/suggestions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user.id }),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setMatchSuggestions(data);
+            console.log(data);
+          }
+        } catch (error) {
+          console.error("Error fetching suggestions:", error);
+        } finally {
+          setLoadingSuggestions(false);
+        }
+      };
+
+      fetchSuggestions();
+    }
+  }, [submitted, user?.id]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -511,32 +587,117 @@ export default function DashboardContent() {
           <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
         </div>
 
-        <div className="relative bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 p-8 md:p-10 border border-white/50 max-w-lg text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-[#6675FF] to-[#8892ff] flex items-center justify-center animate-bounce">
-            <svg
-              className="w-10 h-10 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-semibold text-[#171717] mb-3">
-            Verification Complete!
-          </h1>
-          <p className="text-gray-500 mb-2 text-lg">
-            Welcome aboard, {formData.full_name}!
-          </p>
-          <p className="text-sm text-gray-400">
-            Your profile has been created successfully. We&apos;ll match you
-            with ride partners soon.
-          </p>
+        <div className="relative w-full max-w-lg">
+          {loadingSuggestions ? (
+             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl p-8 text-center border border-white/50">
+               <div className="w-12 h-12 border-4 border-[#6675FF] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+               <p className="text-gray-500">Finding your best matches...</p>
+             </div>
+          ) : matchSuggestions.length > 0 ? (
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50">
+               <div className="bg-[#6675FF] p-6 text-white text-center">
+                 <h2 className="text-2xl font-semibold mb-1">Top Match Found!</h2>
+                 <p className="opacity-90">Based on your route and schedule</p>
+               </div>
+               
+               <div className="p-8">
+                 <div className="flex items-center gap-4 mb-6">
+                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xl font-bold">
+                     {matchSuggestions[0].ride_requests?.profiles?.full_name?.charAt(0) || "R"}
+                   </div>
+                   <div>
+                     <h3 className="text-xl font-semibold text-gray-800">
+                       {/* {matchSuggestions[0].ride_requests?.profiles?.full_name} */}
+                       {""}
+                     </h3>
+                     <p className="text-gray-500 text-sm">
+                       {matchSuggestions[0].ride_requests?.profiles?.student_year || "Student"} • {matchSuggestions[0].ride_requests?.profiles?.gender}
+                     </p>
+                     <div className="flex items-center gap-1 mt-1">
+                       <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                         {Math.round(matchSuggestions[0].overall_score * 100)}% Match
+                       </span>
+                     </div>
+                   </div>
+                 </div>
+
+                 <div className="space-y-4 mb-8">
+                   <div className="flex items-start gap-3">
+                     <div className="mt-1 bg-blue-50 p-1.5 rounded-lg text-blue-600">
+                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                     </div>
+                     <div>
+                       <p className="text-xs text-gray-500 uppercase font-semibold">Pickup</p>
+                       <p className="text-gray-700">{matchSuggestions[0].ride_requests?.pickup_location}</p>
+                     </div>
+                   </div>
+                   
+                   <div className="flex items-start gap-3">
+                     <div className="mt-1 bg-purple-50 p-1.5 rounded-lg text-purple-600">
+                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                     </div>
+                     <div>
+                        <p className="text-xs text-gray-500 uppercase font-semibold">Detour</p>
+                        <p className="text-gray-700">
+                          {matchSuggestions[0].detour_distance_meters 
+                            ? `${(matchSuggestions[0].detour_distance_meters / 1000).toFixed(1)} km` 
+                            : "Minimal detour"}
+                        </p>
+                     </div>
+                   </div>
+                 </div>
+
+                  <div className="flex gap-3 mt-6">
+                   <button 
+                     onClick={() => handleSkipMatch(matchSuggestions[0].id)}
+                     className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+                   >
+                     Skip
+                   </button>
+                   <button 
+                     onClick={() => handleAcceptMatch(matchSuggestions[0].id, matchSuggestions[0].ride_requests?.profiles?.full_name)}
+                     className="flex-1 py-3.5 bg-[#6675FF] hover:bg-[#5b6ae0] text-white rounded-xl font-medium transition-colors shadow-lg shadow-[#6675FF]/20"
+                   >
+                     Accept Request
+                   </button>
+                 </div>
+                 <p className="text-xs text-gray-400 text-center mt-3">
+                   Contact info will be revealed after acceptance
+                 </p>
+               </div>
+            </div>
+          ) : (
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 p-8 md:p-10 border border-white/50 text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-[#6675FF] to-[#8892ff] flex items-center justify-center animate-pulse">
+                <svg
+                  className="w-10 h-10 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <h1 className="text-2xl font-semibold text-[#171717] mb-3">
+                We are matching you up
+              </h1>
+              <p className="text-gray-500 mb-6">
+                Thanks for verifying, {formData.full_name}! We&apos;re currently looking for the best riders for your route.
+              </p>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-sm font-medium">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                </span>
+                Searching for riders...
+              </div>
+            </div>
+          )}
         </div>
       </main>
     );
@@ -544,7 +705,6 @@ export default function DashboardContent() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-white to-[#e8ebff] flex items-center justify-center px-4 py-12">
-      {/* Background decorative elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
