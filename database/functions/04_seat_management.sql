@@ -215,7 +215,7 @@ BEGIN
         WHERE rr.rider_id = user_id AND rr.status IN ('active', 'matched');
     END IF;
     
-    -- Get pending matches
+    -- Get pending/active matches (Host-First Logic)
     SELECT json_agg(
         json_build_object(
             'match_id', ms.id,
@@ -250,12 +250,14 @@ BEGIN
         )
     ) INTO pending_matches
     FROM match_suggestions ms
-    WHERE ms.status IN ('pending', 'shown', 'accepted')
-    AND (
-        (ms.ride_template_id IN (SELECT id FROM ride_templates WHERE host_id = user_id))
+    WHERE 
+        -- HOST VISIBILITY: Can see pending, accepted, shown
+        (ms.ride_template_id IN (SELECT id FROM ride_templates WHERE host_id = user_id) 
+         AND ms.status IN ('pending', 'accepted', 'shown'))
         OR
-        (ms.ride_request_id IN (SELECT id FROM ride_requests WHERE rider_id = user_id))
-    );
+        -- RIDER VISIBILITY: Can ONLY see accepted or shown (NOT pending)
+        (ms.ride_request_id IN (SELECT id FROM ride_requests WHERE rider_id = user_id) 
+         AND ms.status IN ('accepted', 'shown'));
     
     RETURN json_build_object(
         'success', true,
