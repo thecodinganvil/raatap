@@ -40,6 +40,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Trigger matching for existing ride_templates
+    await supabase.rpc("generate_match_suggestions_for_ride_request", {
+      request_id: result.ride_request_id
+    });
+
     return NextResponse.json(result);
   } catch (error) {
     console.error("Unexpected error:", error);

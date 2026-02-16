@@ -9,10 +9,11 @@ const supabase = createClient(
 export async function POST(request: NextRequest) {
   try {
     const { matchId, userId, userRole } = await request.json();
+    console.log("API [matches/skip] Request:", { matchId, userId, userRole });
 
     if (!matchId || !userId || !userRole) {
       return NextResponse.json(
-        { error: "Missing required fields: matchId, userId, userRole" },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
@@ -32,13 +33,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error("Error skipping match:", error);
+      console.error("API [matches/skip] Error:", error);
       return NextResponse.json(
         { error: error.message },
         { status: 500 }
       );
     }
 
+    console.log("API [matches/skip] Response:", data);
     return NextResponse.json(data);
   } catch (error) {
     console.error("Unexpected error:", error);

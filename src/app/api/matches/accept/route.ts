@@ -9,6 +9,7 @@ const supabase = createClient(
 export async function POST(request: NextRequest) {
   try {
     const { matchId, hostId, podName } = await request.json();
+    console.log("API [matches/accept] Request:", { matchId, hostId, podName });
 
     if (!matchId || !hostId) {
       return NextResponse.json(
@@ -19,19 +20,20 @@ export async function POST(request: NextRequest) {
 
     // Call the accept match function
     const { data, error } = await supabase.rpc("accept_match_suggestion", {
-      match_id: matchId,
-      host_id: hostId,
-      pod_name: podName || null,
+      p_match_id: matchId,
+      p_host_id: hostId,
+      // pod_name: podName || null,
     });
 
     if (error) {
-      console.error("Error accepting match:", error);
+      console.error("API [matches/accept] Error:", error);
       return NextResponse.json(
         { error: error.message },
         { status: 500 }
       );
     }
 
+    console.log("API [matches/accept] Response:", data);
     return NextResponse.json(data);
   } catch (error) {
     console.error("Unexpected error:", error);
