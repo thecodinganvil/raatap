@@ -22,7 +22,7 @@ CREATE TABLE public.match_suggestions (
   detour_distance_meters integer,
   detour_time_seconds integer,
   pickup_distance_meters integer,
-  status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'shown'::text, 'accepted'::text, 'skipped'::text, 'expired'::text])),
+  status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'shown'::text, 'accepted'::text, 'skipped'::text, 'expired'::text, 'confirmed'::text])),
   shown_to_host_at timestamp with time zone,
   host_action_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),

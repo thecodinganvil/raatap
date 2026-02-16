@@ -34,6 +34,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Trigger matching for existing ride_requests
+    // We do this asynchronously or simply await it if we want to return immediate feedback
+    // Ideally use a background job, but here we await for simplicity in prototype
+    await supabase.rpc("generate_match_suggestions_for_ride_template", {
+      template_id: result.ride_template_id
+    });
+
     return NextResponse.json(result);
   } catch (error) {
     console.error("Unexpected error:", error);
