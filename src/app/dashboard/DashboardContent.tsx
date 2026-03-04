@@ -14,6 +14,7 @@ interface FormData {
   gender: string;
   institution: string;
   from_location: string;
+  landmark: string;
   to_location: string;
   from_lat: number | null;
   from_lng: number | null;
@@ -31,7 +32,7 @@ interface FormData {
   agreed_to_terms: boolean;
 }
 
-const COLLEGES = [
+export const COLLEGES = [
   "CBIT",
   "MGIT",
   "VNRVJIET",
@@ -42,7 +43,7 @@ const COLLEGES = [
   "Other",
 ];
 
-const DAYS = [
+export const DAYS = [
   "Monday",
   "Tuesday",
   "Wednesday",
@@ -58,6 +59,8 @@ export default function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  const [currentInstitutionalEmail, setCurrentInstitutionalEmail] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -82,6 +85,7 @@ export default function DashboardContent() {
     gender: "",
     institution: "",
     from_location: "",
+    landmark: "",
     to_location: "",
     from_lat: null,
     from_lng: null,
@@ -148,29 +152,106 @@ export default function DashboardContent() {
     }
   };
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (document.getElementById("razorpay-js")) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.id = "razorpay-js";
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const handleConfirmMatch = async (matchId: string) => {
     try {
-      const response = await fetch("/api/matches/confirm", {
+      const resLoad = await loadRazorpayScript();
+      if (!resLoad) {
+        alert("Razorpay SDK failed to load. Are you online?");
+        return;
+      }
+
+      // 1. Create Order
+      const orderResponse = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          matchId, 
-          riderId: user?.id 
-        }),
+        body: JSON.stringify({ amount: 19, currency: "INR" }),
       });
+      const orderData = await orderResponse.json();
 
-      if (response.ok) {
-        alert("Ride Confirmed! You are now part of the pod.");
-        setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
-        // Optionally redirect to a "My Rides" page
-      } else {
-        const data = await response.json();
-        alert(`Failed to confirm: ${data.error}`);
+      if (!orderData.success) {
+        alert("Failed to create payment order. Please try again.");
+        return;
       }
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, // Use test key
+        amount: orderData.order.amount,
+        currency: orderData.order.currency,
+        name: "Raatap",
+        description: "Pod Confirmation Fee",
+        order_id: orderData.order.id,
+        handler: async function (response: any) {
+          // 3. Verify Payment
+          const verifyResponse = await fetch("/api/razorpay/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+          const verifyData = await verifyResponse.json();
+
+          if (verifyData.success) {
+            // 4. Confirm Match in DB
+            const confirmResponse = await fetch("/api/matches/confirm", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                matchId, 
+                riderId: user?.id 
+              }),
+            });
+
+            if (confirmResponse.ok) {
+              alert("Payment successful! Ride Confirmed! You are now part of the pod.");
+              setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
+            } else {
+              const data = await confirmResponse.json();
+              alert(`Payment successful, but failed to confirm ride: ${data.error}`);
+            }
+          } else {
+            alert("Payment verification failed! Please contact support.");
+          }
+        },
+        prefill: {
+          name: formData.full_name,
+          email: institutionalEmail || "rider@raatap.com",
+          contact: formData.phone_number,
+        },
+        theme: {
+          color: "#6675FF",
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on("payment.failed", function (response: any) {
+        alert(`Payment failed: ${response.error.description}`);
+      });
+      rzp.open();
+
     } catch (error) {
       console.error("Error confirming match:", error);
     }
   };
+
 
 
   const handleRejectMatch = async (matchId: string) => {
@@ -220,8 +301,11 @@ export default function DashboardContent() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     if (user?.id) {
        fetchConfirmedPods(user.id).then((data) => {
+         if (!isMounted) return;
          console.log("Dashboard fetchConfirmedPods data:", data);
          // Allow fetching suggestions if:
          // 1. User is a HOST (host_pods > 0) OR
@@ -235,21 +319,25 @@ export default function DashboardContent() {
                  headers: { "Content-Type": "application/json" },
                  body: JSON.stringify({ userId: user.id }),
                });
-               if (response.ok) {
+               if (response.ok && isMounted) {
                  const data = await response.json();
                  setMatchSuggestions(data);
                }
              } catch (error) {
                console.error("Error fetching suggestions:", error);
              } finally {
-               setLoadingSuggestions(false);
+               if (isMounted) setLoadingSuggestions(false);
              }
            };
            fetchSuggestions();
          }
        });
     }
-  }, [user, submitted]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, submitted]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -286,6 +374,8 @@ export default function DashboardContent() {
 
         if (existingEntry) {
           setSubmitted(true);
+          setIsVerified(existingEntry.email_verified);
+          setCurrentInstitutionalEmail(existingEntry.institutional_email);
         } else if (authUser.user_metadata?.full_name) {
           setFormData((prev) => ({
             ...prev,
@@ -315,6 +405,8 @@ export default function DashboardContent() {
 
         if (existingEntry) {
           setSubmitted(true);
+          setIsVerified(existingEntry.email_verified);
+          setCurrentInstitutionalEmail(existingEntry.institutional_email);
         } else if (session.user.user_metadata?.full_name) {
           setFormData((prev) => ({
             ...prev,
@@ -417,20 +509,30 @@ export default function DashboardContent() {
   const handleSendOTP = async () => {
     // Validate institutional email
     if (!institutionalEmail) {
-      setErrors({
-        ...errors,
-        institutional_email: "Institutional email is required",
-      });
+      setOtpError("Institutional email is required");
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(institutionalEmail)) {
-      setErrors({
-        ...errors,
-        institutional_email: "Please enter a valid email address",
-      });
+      setOtpError("Please enter a valid email address");
+      return;
+    }
+
+    // Educational domain validation (from educational_mails.txt)
+    const allowedDomains = [
+      "vjit.ac.in",
+      "cbit.org.in",
+      "chaitanya.edu.in",
+      "vce.ac.in",
+      "lords.ac.in",
+      "mgit.ac.in"
+    ];
+    const emailDomain = institutionalEmail.split("@")[1]?.toLowerCase();
+    
+    if (!emailDomain || !allowedDomains.includes(emailDomain)) {
+      setOtpError("Unsupported college email. Please skip verification for now and we will do it later.");
       return;
     }
 
@@ -535,6 +637,7 @@ export default function DashboardContent() {
           institution: formData.institution,
           institutional_email: institutionalEmail,
           from_location: formData.from_location,
+          pickup_landmark: formData.landmark || null,
           to_location: formData.to_location,
           from_lat: formData.from_lat,
           from_lng: formData.from_lng,
@@ -568,6 +671,8 @@ export default function DashboardContent() {
       }
 
       console.log("Profile saved successfully!");
+      setIsVerified(true);
+      setCurrentInstitutionalEmail(institutionalEmail);
       setOtpLoading(false);
       setSubmitting(false);
       setVerificationStep(null); // Reset verification step to allow submitted screen to show
@@ -581,7 +686,7 @@ export default function DashboardContent() {
     }
   };
 
-  const handleSubmitWithoutEmail = async () => {
+  const handleRequestManualVerification = async () => {
     setSubmitting(true);
     setOtpError("");
 
@@ -596,6 +701,7 @@ export default function DashboardContent() {
           institution: formData.institution,
           institutional_email: null,
           from_location: formData.from_location,
+          pickup_landmark: formData.landmark || null,
           to_location: formData.to_location,
           from_lat: formData.from_lat,
           from_lng: formData.from_lng,
@@ -624,6 +730,8 @@ export default function DashboardContent() {
       }
 
       console.log("Profile saved successfully (without email)!");
+      setIsVerified(false);
+      setCurrentInstitutionalEmail(null);
       setSubmitting(false);
       setSubmitted(true);
     } catch (err) {
@@ -663,6 +771,45 @@ export default function DashboardContent() {
   }
 
   if (submitted) {
+    if (isVerified === false) {
+      return (
+        <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-white to-[#e8ebff] flex items-center justify-center px-4 py-8">
+          <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
+            <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
+          </div>
+          <div className="relative w-full max-w-lg bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl p-10 text-center border border-white/50">
+            {currentInstitutionalEmail === "REJECTED" ? (
+              <>
+                <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-3">Verification Rejected</h2>
+                <p className="text-gray-600 mb-6">
+                  Your identity verification was rejected by an administrator. Please contact support.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-3">Verifying Your Identity</h2>
+                <p className="text-gray-600 mb-6">
+                  Your profile is currently under manual review. This usually takes up to 24 hours. We'll notify you once verified!
+                </p>
+                <div className="w-12 h-12 border-4 border-[#6675FF] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              </>
+            )}
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-white to-[#e8ebff] flex items-center justify-center px-4 py-8">
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -1477,6 +1624,7 @@ export default function DashboardContent() {
                         setFormData((prev) => ({
                           ...prev,
                           prefer_hosting: e.target.checked,
+                          prefer_taking_ride: e.target.checked ? false : prev.prefer_taking_ride, // Uncheck other if checking this
                         }));
                         if (errors.preference)
                           setErrors((prev) => ({ ...prev, preference: "" }));
@@ -1495,6 +1643,7 @@ export default function DashboardContent() {
                         setFormData((prev) => ({
                           ...prev,
                           prefer_taking_ride: e.target.checked,
+                          prefer_hosting: e.target.checked ? false : prev.prefer_hosting, // Uncheck other if checking this
                         }));
                         if (errors.preference)
                           setErrors((prev) => ({ ...prev, preference: "" }));
@@ -1793,7 +1942,7 @@ export default function DashboardContent() {
                   )}
 
                   <button
-                    onClick={handleSubmitWithoutEmail}
+                    onClick={handleRequestManualVerification}
                     disabled={submitting}
                     className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold text-lg rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
                   >

@@ -12,10 +12,10 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // Redirect /login to /signup (login page removed)
-  if (pathname === "/login") {
-    return NextResponse.redirect(new URL("/signup", request.url));
-  }
+  // Redirect /login to /signup (login page removed) - REMOVED for Email/Password Auth
+  // if (pathname === "/login") {
+  //   return NextResponse.redirect(new URL("/signup", request.url));
+  // }
 
   // Always allow the request through
   // Client-side components handle their own auth and redirects
