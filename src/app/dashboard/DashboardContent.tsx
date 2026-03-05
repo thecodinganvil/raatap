@@ -902,14 +902,14 @@ export default function DashboardContent() {
                                    </div>
                                     
                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                      <div className="bg-blue-50 p-2 rounded-lg">
-                                        <span className="block text-blue-600 font-bold uppercase tracking-wider text-[10px] mb-0.5">Pickup</span>
+                                      <div className="bg-[#6675FF]/10 p-2 rounded-lg">
+                                        <span className="block text-[#6675FF] font-bold uppercase tracking-wider text-[10px] mb-0.5">Pickup</span>
                                         <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.pickup_location}>
                                             {member.ride_requests?.pickup_location || "N/A"}
                                         </span>
                                       </div>
-                                      <div className="bg-purple-50 p-2 rounded-lg">
-                                        <span className="block text-purple-600 font-bold uppercase tracking-wider text-[10px] mb-0.5">Dropoff</span>
+                                      <div className="bg-[#4d5ce6]/10 p-2 rounded-lg">
+                                        <span className="block text-[#4d5ce6] font-bold uppercase tracking-wider text-[10px] mb-0.5">Dropoff</span>
                                         <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.dropoff_location}>
                                             {member.ride_requests?.dropoff_location || "N/A"}
                                         </span>
@@ -942,7 +942,7 @@ export default function DashboardContent() {
                            <div>
                              <p className="font-semibold text-gray-800 flex items-center gap-2">
                                 {ride.pods?.profiles?.full_name || "Host"}
-                                <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full font-medium">Host</span>
+                                <span className="text-xs px-2 py-0.5 bg-[#6675FF]/10 text-[#6675FF] rounded-full font-medium">Host</span>
                              </p>
                              <p className="text-sm text-gray-500">
                                {ride.pods?.ride_templates?.vehicle_type === '2_wheeler' ? 'Bike' : 'Car'} • {ride.pods?.profiles?.gender}
@@ -979,12 +979,12 @@ export default function DashboardContent() {
                         )}
 
                          <div className="grid grid-cols-2 gap-3">
-                           <div className="p-3 bg-blue-50 rounded-xl">
-                             <p className="text-xs text-blue-600 font-semibold uppercase mb-1">Pickup</p>
+                           <div className="p-3 bg-[#6675FF]/10 rounded-xl">
+                             <p className="text-xs text-[#6675FF] font-semibold uppercase mb-1">Pickup</p>
                              <p className="text-gray-700 text-sm font-medium">{ride.pickup_location}</p>
                            </div>
-                           <div className="p-3 bg-purple-50 rounded-xl">
-                             <p className="text-xs text-purple-600 font-semibold uppercase mb-1">Time</p>
+                           <div className="p-3 bg-[#4d5ce6]/10 rounded-xl">
+                             <p className="text-xs text-[#4d5ce6] font-semibold uppercase mb-1">Time</p>
                              <p className="text-gray-700 text-sm font-medium">{ride.pods?.departure_time}</p>
                            </div>
                          </div>
@@ -1031,7 +1031,7 @@ export default function DashboardContent() {
 
                      <div className="space-y-4 mb-8">
                        <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-blue-50 p-1.5 rounded-lg text-blue-600">
+                         <div className="mt-1 bg-[#6675FF]/10 p-1.5 rounded-lg text-[#6675FF]">
                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                          </div>
                          <div>
@@ -1041,7 +1041,7 @@ export default function DashboardContent() {
                        </div>
                        
                        <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-purple-50 p-1.5 rounded-lg text-purple-600">
+                         <div className="mt-1 bg-[#4d5ce6]/10 p-1.5 rounded-lg text-[#4d5ce6]">
                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                          </div>
                          <div>
@@ -1097,7 +1097,7 @@ export default function DashboardContent() {
 
                      <div className="space-y-4 mb-8">
                        <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-blue-50 p-1.5 rounded-lg text-blue-600">
+                         <div className="mt-1 bg-[#6675FF]/10 p-1.5 rounded-lg text-[#6675FF]">
                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                          </div>
                          <div>
@@ -1107,7 +1107,7 @@ export default function DashboardContent() {
                        </div>
                        
                        <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-purple-50 p-1.5 rounded-lg text-purple-600">
+                         <div className="mt-1 bg-[#4d5ce6]/10 p-1.5 rounded-lg text-[#4d5ce6]">
                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                          </div>
                          <div>
@@ -1167,10 +1167,10 @@ export default function DashboardContent() {
               <p className="text-gray-500 mb-6">
                 Thanks for verifying, {formData.full_name}! We&apos;re currently looking for the best riders for your route.
               </p>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-sm font-medium">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6675FF]/10 text-[#6675FF] rounded-full text-sm font-medium">
                 <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8892ff] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-[#6675FF]"></span>
                 </span>
                 Searching for riders...
               </div>

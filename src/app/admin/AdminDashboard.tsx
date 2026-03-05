@@ -461,13 +461,13 @@ export default function AdminDashboard() {
             <p className="text-sm text-gray-500">Total Profiles</p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
-            <p className="text-3xl font-semibold text-blue-600">
+            <p className="text-3xl font-semibold text-[#6675FF]">
               {stats.hosts}
             </p>
             <p className="text-sm text-gray-500">Hosts</p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
-            <p className="text-3xl font-semibold text-purple-600">
+            <p className="text-3xl font-semibold text-[#4d5ce6]">
               {stats.riders}
             </p>
             <p className="text-sm text-gray-500">Riders</p>
@@ -744,12 +744,12 @@ export default function AdminDashboard() {
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex flex-col gap-1">
                           {entry.prefer_hosting && (
-                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-lg border bg-blue-50 text-blue-700 border-blue-200">
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-lg border bg-[#6675FF]/10 text-[#4d5ce6] border-[#8892ff]/30">
                               Host
                             </span>
                           )}
                           {entry.prefer_taking_ride && (
-                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-lg border bg-purple-50 text-purple-700 border-purple-200">
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-lg border bg-[#4d5ce6]/10 text-[#4d5ce6] border-[#4d5ce6]/30">
                               Rider
                             </span>
                           )}

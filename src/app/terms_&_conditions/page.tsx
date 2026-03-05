@@ -72,7 +72,7 @@ export default function TermsAndConditions() {
                   <li>Raatap does not own, operate, or control any vehicle</li>
                   <li>Raatap does not employ drivers or riders</li>
                 </ul>
-                <p className="mt-4 italic bg-blue-50/50 p-4 rounded-xl border border-blue-100/50">
+                <p className="mt-4 italic bg-[#6675FF]/5 p-4 rounded-xl border border-[#6675FF]/10">
                   All rides arranged through the platform are private, non-commercial arrangements between users. Any agreement, interaction, or transaction occurs solely between the participating users.
                 </p>
               </section>
