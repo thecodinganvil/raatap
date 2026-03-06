@@ -14,6 +14,7 @@ interface FormData {
   gender: string;
   institution: string;
   from_location: string;
+  landmark: string;
   to_location: string;
   from_lat: number | null;
   from_lng: number | null;
@@ -31,7 +32,7 @@ interface FormData {
   agreed_to_terms: boolean;
 }
 
-const COLLEGES = [
+export const COLLEGES = [
   "CBIT",
   "MGIT",
   "VNRVJIET",
@@ -42,7 +43,7 @@ const COLLEGES = [
   "Other",
 ];
 
-const DAYS = [
+export const DAYS = [
   "Monday",
   "Tuesday",
   "Wednesday",
@@ -58,6 +59,8 @@ export default function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  const [currentInstitutionalEmail, setCurrentInstitutionalEmail] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -82,6 +85,7 @@ export default function DashboardContent() {
     gender: "",
     institution: "",
     from_location: "",
+    landmark: "",
     to_location: "",
     from_lat: null,
     from_lng: null,
@@ -150,27 +154,28 @@ export default function DashboardContent() {
 
   const handleConfirmMatch = async (matchId: string) => {
     try {
-      const response = await fetch("/api/matches/confirm", {
+      const confirmResponse = await fetch("/api/matches/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          matchId, 
-          riderId: user?.id 
+        body: JSON.stringify({
+          matchId,
+          riderId: user?.id
         }),
       });
 
-      if (response.ok) {
+      if (confirmResponse.ok) {
         alert("Ride Confirmed! You are now part of the pod.");
         setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
-        // Optionally redirect to a "My Rides" page
       } else {
-        const data = await response.json();
-        alert(`Failed to confirm: ${data.error}`);
+        const data = await confirmResponse.json();
+        alert(`Failed to confirm ride: ${data.error}`);
       }
     } catch (error) {
       console.error("Error confirming match:", error);
+      alert("Error confirming match. Please try again.");
     }
   };
+
 
 
   const handleRejectMatch = async (matchId: string) => {
@@ -220,8 +225,11 @@ export default function DashboardContent() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     if (user?.id) {
        fetchConfirmedPods(user.id).then((data) => {
+         if (!isMounted) return;
          console.log("Dashboard fetchConfirmedPods data:", data);
          // Allow fetching suggestions if:
          // 1. User is a HOST (host_pods > 0) OR
@@ -235,21 +243,25 @@ export default function DashboardContent() {
                  headers: { "Content-Type": "application/json" },
                  body: JSON.stringify({ userId: user.id }),
                });
-               if (response.ok) {
+               if (response.ok && isMounted) {
                  const data = await response.json();
                  setMatchSuggestions(data);
                }
              } catch (error) {
                console.error("Error fetching suggestions:", error);
              } finally {
-               setLoadingSuggestions(false);
+               if (isMounted) setLoadingSuggestions(false);
              }
            };
            fetchSuggestions();
          }
        });
     }
-  }, [user, submitted]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, submitted]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -286,6 +298,8 @@ export default function DashboardContent() {
 
         if (existingEntry) {
           setSubmitted(true);
+          setIsVerified(existingEntry.email_verified);
+          setCurrentInstitutionalEmail(existingEntry.institutional_email);
         } else if (authUser.user_metadata?.full_name) {
           setFormData((prev) => ({
             ...prev,
@@ -315,6 +329,8 @@ export default function DashboardContent() {
 
         if (existingEntry) {
           setSubmitted(true);
+          setIsVerified(existingEntry.email_verified);
+          setCurrentInstitutionalEmail(existingEntry.institutional_email);
         } else if (session.user.user_metadata?.full_name) {
           setFormData((prev) => ({
             ...prev,
@@ -417,20 +433,30 @@ export default function DashboardContent() {
   const handleSendOTP = async () => {
     // Validate institutional email
     if (!institutionalEmail) {
-      setErrors({
-        ...errors,
-        institutional_email: "Institutional email is required",
-      });
+      setOtpError("Institutional email is required");
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(institutionalEmail)) {
-      setErrors({
-        ...errors,
-        institutional_email: "Please enter a valid email address",
-      });
+      setOtpError("Please enter a valid email address");
+      return;
+    }
+
+    // Educational domain validation (from educational_mails.txt)
+    const allowedDomains = [
+      "vjit.ac.in",
+      "cbit.org.in",
+      "chaitanya.edu.in",
+      "vce.ac.in",
+      "lords.ac.in",
+      "mgit.ac.in"
+    ];
+    const emailDomain = institutionalEmail.split("@")[1]?.toLowerCase();
+    
+    if (!emailDomain || !allowedDomains.includes(emailDomain)) {
+      setOtpError("Unsupported college email. Please skip verification for now and we will do it later.");
       return;
     }
 
@@ -535,6 +561,7 @@ export default function DashboardContent() {
           institution: formData.institution,
           institutional_email: institutionalEmail,
           from_location: formData.from_location,
+          pickup_landmark: formData.landmark || null,
           to_location: formData.to_location,
           from_lat: formData.from_lat,
           from_lng: formData.from_lng,
@@ -568,6 +595,8 @@ export default function DashboardContent() {
       }
 
       console.log("Profile saved successfully!");
+      setIsVerified(true);
+      setCurrentInstitutionalEmail(institutionalEmail);
       setOtpLoading(false);
       setSubmitting(false);
       setVerificationStep(null); // Reset verification step to allow submitted screen to show
@@ -581,7 +610,7 @@ export default function DashboardContent() {
     }
   };
 
-  const handleSubmitWithoutEmail = async () => {
+  const handleRequestManualVerification = async () => {
     setSubmitting(true);
     setOtpError("");
 
@@ -596,6 +625,7 @@ export default function DashboardContent() {
           institution: formData.institution,
           institutional_email: null,
           from_location: formData.from_location,
+          pickup_landmark: formData.landmark || null,
           to_location: formData.to_location,
           from_lat: formData.from_lat,
           from_lng: formData.from_lng,
@@ -624,6 +654,8 @@ export default function DashboardContent() {
       }
 
       console.log("Profile saved successfully (without email)!");
+      setIsVerified(false);
+      setCurrentInstitutionalEmail(null);
       setSubmitting(false);
       setSubmitted(true);
     } catch (err) {
@@ -663,6 +695,45 @@ export default function DashboardContent() {
   }
 
   if (submitted) {
+    if (isVerified === false) {
+      return (
+        <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-white to-[#e8ebff] flex items-center justify-center px-4 py-8">
+          <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
+            <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[#6675FF]/10 rounded-full blur-3xl"></div>
+          </div>
+          <div className="relative w-full max-w-lg bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl p-10 text-center border border-white/50">
+            {currentInstitutionalEmail === "REJECTED" ? (
+              <>
+                <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-3">Verification Rejected</h2>
+                <p className="text-gray-600 mb-6">
+                  Your identity verification was rejected by an administrator. Please contact support.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-3">Verifying Your Identity</h2>
+                <p className="text-gray-600 mb-6">
+                  Your profile is currently under manual review. This usually takes up to 24 hours. We'll notify you once verified!
+                </p>
+                <div className="w-12 h-12 border-4 border-[#6675FF] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              </>
+            )}
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-white to-[#e8ebff] flex items-center justify-center px-4 py-8">
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -755,14 +826,14 @@ export default function DashboardContent() {
                                    </div>
                                     
                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                      <div className="bg-blue-50 p-2 rounded-lg">
-                                        <span className="block text-blue-600 font-bold uppercase tracking-wider text-[10px] mb-0.5">Pickup</span>
+                                      <div className="bg-[#6675FF]/10 p-2 rounded-lg">
+                                        <span className="block text-[#6675FF] font-bold uppercase tracking-wider text-[10px] mb-0.5">Pickup</span>
                                         <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.pickup_location}>
                                             {member.ride_requests?.pickup_location || "N/A"}
                                         </span>
                                       </div>
-                                      <div className="bg-purple-50 p-2 rounded-lg">
-                                        <span className="block text-purple-600 font-bold uppercase tracking-wider text-[10px] mb-0.5">Dropoff</span>
+                                      <div className="bg-[#4d5ce6]/10 p-2 rounded-lg">
+                                        <span className="block text-[#4d5ce6] font-bold uppercase tracking-wider text-[10px] mb-0.5">Dropoff</span>
                                         <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.dropoff_location}>
                                             {member.ride_requests?.dropoff_location || "N/A"}
                                         </span>
@@ -795,7 +866,7 @@ export default function DashboardContent() {
                            <div>
                              <p className="font-semibold text-gray-800 flex items-center gap-2">
                                 {ride.pods?.profiles?.full_name || "Host"}
-                                <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full font-medium">Host</span>
+                                <span className="text-xs px-2 py-0.5 bg-[#6675FF]/10 text-[#6675FF] rounded-full font-medium">Host</span>
                              </p>
                              <p className="text-sm text-gray-500">
                                {ride.pods?.ride_templates?.vehicle_type === '2_wheeler' ? 'Bike' : 'Car'} • {ride.pods?.profiles?.gender}
@@ -832,12 +903,12 @@ export default function DashboardContent() {
                         )}
 
                          <div className="grid grid-cols-2 gap-3">
-                           <div className="p-3 bg-blue-50 rounded-xl">
-                             <p className="text-xs text-blue-600 font-semibold uppercase mb-1">Pickup</p>
+                           <div className="p-3 bg-[#6675FF]/10 rounded-xl">
+                             <p className="text-xs text-[#6675FF] font-semibold uppercase mb-1">Pickup</p>
                              <p className="text-gray-700 text-sm font-medium">{ride.pickup_location}</p>
                            </div>
-                           <div className="p-3 bg-purple-50 rounded-xl">
-                             <p className="text-xs text-purple-600 font-semibold uppercase mb-1">Time</p>
+                           <div className="p-3 bg-[#4d5ce6]/10 rounded-xl">
+                             <p className="text-xs text-[#4d5ce6] font-semibold uppercase mb-1">Time</p>
                              <p className="text-gray-700 text-sm font-medium">{ride.pods?.departure_time}</p>
                            </div>
                          </div>
@@ -884,7 +955,7 @@ export default function DashboardContent() {
 
                      <div className="space-y-4 mb-8">
                        <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-blue-50 p-1.5 rounded-lg text-blue-600">
+                         <div className="mt-1 bg-[#6675FF]/10 p-1.5 rounded-lg text-[#6675FF]">
                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                          </div>
                          <div>
@@ -894,7 +965,7 @@ export default function DashboardContent() {
                        </div>
                        
                        <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-purple-50 p-1.5 rounded-lg text-purple-600">
+                         <div className="mt-1 bg-[#4d5ce6]/10 p-1.5 rounded-lg text-[#4d5ce6]">
                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                          </div>
                          <div>
@@ -950,7 +1021,7 @@ export default function DashboardContent() {
 
                      <div className="space-y-4 mb-8">
                        <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-blue-50 p-1.5 rounded-lg text-blue-600">
+                         <div className="mt-1 bg-[#6675FF]/10 p-1.5 rounded-lg text-[#6675FF]">
                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                          </div>
                          <div>
@@ -960,7 +1031,7 @@ export default function DashboardContent() {
                        </div>
                        
                        <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-purple-50 p-1.5 rounded-lg text-purple-600">
+                         <div className="mt-1 bg-[#4d5ce6]/10 p-1.5 rounded-lg text-[#4d5ce6]">
                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                          </div>
                          <div>
@@ -1020,10 +1091,10 @@ export default function DashboardContent() {
               <p className="text-gray-500 mb-6">
                 Thanks for verifying, {formData.full_name}! We&apos;re currently looking for the best riders for your route.
               </p>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-sm font-medium">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6675FF]/10 text-[#6675FF] rounded-full text-sm font-medium">
                 <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8892ff] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-[#6675FF]"></span>
                 </span>
                 Searching for riders...
               </div>
@@ -1477,6 +1548,7 @@ export default function DashboardContent() {
                         setFormData((prev) => ({
                           ...prev,
                           prefer_hosting: e.target.checked,
+                          prefer_taking_ride: e.target.checked ? false : prev.prefer_taking_ride, // Uncheck other if checking this
                         }));
                         if (errors.preference)
                           setErrors((prev) => ({ ...prev, preference: "" }));
@@ -1495,6 +1567,7 @@ export default function DashboardContent() {
                         setFormData((prev) => ({
                           ...prev,
                           prefer_taking_ride: e.target.checked,
+                          prefer_hosting: e.target.checked ? false : prev.prefer_hosting, // Uncheck other if checking this
                         }));
                         if (errors.preference)
                           setErrors((prev) => ({ ...prev, preference: "" }));
@@ -1793,7 +1866,7 @@ export default function DashboardContent() {
                   )}
 
                   <button
-                    onClick={handleSubmitWithoutEmail}
+                    onClick={handleRequestManualVerification}
                     disabled={submitting}
                     className="w-full py-4 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-semibold text-lg rounded-2xl hover:shadow-xl hover:shadow-[#6675FF]/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
                   >

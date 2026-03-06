@@ -98,12 +98,12 @@ export default function PrivacyPolicy() {
                     </ul>
                   </div>
 
-                  <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100/50">
-                    <h3 className="text-lg font-bold text-blue-900 mb-2">Location Information</h3>
-                    <p className="text-sm text-blue-800 leading-relaxed mb-3">
+                  <div className="p-6 rounded-2xl bg-[#6675FF]/5 border border-[#6675FF]/10">
+                    <h3 className="text-lg font-bold text-[#4d5ce6] mb-2">Location Information</h3>
+                    <p className="text-sm text-[#6675FF] leading-relaxed mb-3">
                       We collect pickup and drop location details related to rides.
                     </p>
-                    <p className="text-xs font-bold uppercase tracking-widest text-blue-600">
+                    <p className="text-xs font-bold uppercase tracking-widest text-[#6675FF]">
                       We do not collect real-time live location tracking or background location data.
                     </p>
                   </div>

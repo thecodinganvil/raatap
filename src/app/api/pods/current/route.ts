@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
           ),
           ride_requests (
             pickup_location,
+            pickup_landmark,
             destination_location
           )
         )
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
                id,
                rider_id,
                pickup_location,
+               pickup_landmark,
                destination_location,
                profiles (
                  full_name,
@@ -94,8 +96,9 @@ export async function POST(request: NextRequest) {
            status: m.status === 'confirmed' ? 'active' : 'pending',
            rider_id: m.ride_requests?.rider_id || m.rider_id,
            profiles: m.ride_requests?.profiles,
-           ride_requests: {
+            ride_requests: {
               pickup_location: m.ride_requests?.pickup_location,
+              pickup_landmark: m.ride_requests?.pickup_landmark,
               dropoff_location: m.ride_requests?.destination_location
            }
         })) || [];

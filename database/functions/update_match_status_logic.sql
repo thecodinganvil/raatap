@@ -95,6 +95,7 @@ BEGIN
         pickup_lat,
         pickup_lng,
         pickup_point,
+        pickup_landmark,
         status,
         host_approved_at
     ) SELECT 
@@ -105,6 +106,7 @@ BEGIN
         rr.pickup_lat,
         rr.pickup_lng,
         rr.pickup_point,
+        rr.pickup_landmark,
         'pending_rider',
         NOW()
     FROM ride_requests rr

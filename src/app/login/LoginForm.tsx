@@ -7,8 +7,13 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export default function LoginForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
   const [error, setError] = useState("");
   const [checkingSession, setCheckingSession] = useState(true);
+
+  // Email/Password state
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   // Check if user is already logged in (handles OAuth redirect case)
   useEffect(() => {
@@ -51,6 +56,7 @@ export default function LoginForm() {
   const handleGoogleSignIn = async () => {
     try {
       setGoogleLoading(true);
+      setError("");
 
       if (!isSupabaseConfigured()) {
         setError("⚠️ Supabase is not configured yet!");
@@ -84,6 +90,37 @@ export default function LoginForm() {
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setEmailLoading(true);
+
+    if (!isSupabaseConfigured()) {
+      setError("⚠️ Supabase is not configured yet!");
+      setEmailLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError("Invalid email or password.");
+      } else {
+        // Auth state change listener will handle redirect
+        console.log("Login successful, waiting for redirect...");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("An unexpected error occurred during login.");
+    } finally {
+      setEmailLoading(false);
     }
   };
 
@@ -136,10 +173,72 @@ export default function LoginForm() {
             </div>
           )}
 
+          {/* Email Sign In Form */}
+          <form onSubmit={handleEmailLogin} className="space-y-4 mb-6">
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#6675FF] focus:border-[#6675FF] outline-none transition-all"
+                placeholder="name@example.com"
+              />
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Password
+                </label>
+                <Link
+                  href="/reset-password"
+                  className="text-xs text-[#6675FF] hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#6675FF] focus:border-[#6675FF] outline-none transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={emailLoading || googleLoading}
+              className="w-full py-4 bg-[#6675FF] text-white font-medium rounded-2xl shadow-lg shadow-[#6675FF]/25 hover:bg-[#5563dd] hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {emailLoading ? "Signing In..." : "Sign In"}
+            </button>
+          </form>
+
+          <div className="relative flex items-center justify-center mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
+            </div>
+            <span className="relative bg-white/80 px-4 text-sm text-gray-500">
+              or continue with
+            </span>
+          </div>
+
           {/* Google Sign In Button */}
           <button
             onClick={handleGoogleSignIn}
-            disabled={googleLoading}
+            disabled={googleLoading || emailLoading}
             type="button"
             className="group relative w-full py-4 bg-white border-2 border-gray-200 text-[#171717] font-medium rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#6675FF]/50 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -163,12 +262,10 @@ export default function LoginForm() {
                 />
               </svg>
               <span>
-                {googleLoading ? "Connecting..." : "Continue with Google"}
+                {googleLoading ? "Connecting..." : "Google"}
               </span>
             </span>
           </button>
-
-          {/* Features List */}
 
           {/* Sign Up Link */}
           <p className="text-center text-sm text-gray-600 mt-8">
@@ -198,7 +295,7 @@ export default function LoginForm() {
                 d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
               />
             </svg>
-            <span>Secured with Google OAuth</span>
+            <span>Secured with Supabase</span>
           </div>
         </div>
       </div>

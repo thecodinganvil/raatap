@@ -7,8 +7,14 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export default function SignupForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [checkingSession, setCheckingSession] = useState(true);
+
+  // Email/Password state
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   // Check if user is already logged in (handles OAuth redirect case)
   useEffect(() => {
@@ -51,9 +57,10 @@ export default function SignupForm() {
   const handleGoogleSignIn = async () => {
     try {
       setGoogleLoading(true);
+      setError("");
 
       if (!isSupabaseConfigured()) {
-        alert("⚠️ Supabase is not configured yet!");
+        setError("⚠️ Supabase is not configured yet!");
         return;
       }
 
@@ -85,6 +92,51 @@ export default function SignupForm() {
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleEmailSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccessMessage("");
+    setEmailLoading(true);
+
+    if (!isSupabaseConfigured()) {
+      setError("⚠️ Supabase is not configured yet!");
+      setEmailLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+
+      if (error) {
+        setError(error.message);
+      } else if (data.user && data.user.identities?.length === 0) {
+         setError("This email is already registered. Please sign in instead.");
+      } else if (data.session) {
+        // If "Confirm email" is disabled in Supabase, we get a session immediately
+        console.log("Signup successful, session created. Redirecting...");
+        window.location.href = "/dashboard";
+      } else {
+        // If "Confirm email" is enabled, we don't get a session
+        setSuccessMessage(
+          "Success! Please check your email to confirm your account."
+        );
+        setEmail("");
+        setPassword("");
+      }
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError("An unexpected error occurred during sign up.");
+    } finally {
+      setEmailLoading(false);
     }
   };
 
@@ -126,7 +178,7 @@ export default function SignupForm() {
               Join Raatap
             </h1>
             <p className="text-gray-500 text-sm mt-2">
-              Sign up with your Google account
+              Create your account to get started
             </p>
           </div>
 
@@ -137,10 +189,77 @@ export default function SignupForm() {
             </div>
           )}
 
+          {/* Success Message */}
+          {successMessage && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+              <p className="text-sm text-green-600 text-center">
+                {successMessage}
+              </p>
+            </div>
+          )}
+
+          {/* Email Sign Up Form */}
+          <form onSubmit={handleEmailSignUp} className="space-y-4 mb-6">
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#6675FF] focus:border-[#6675FF] outline-none transition-all"
+                placeholder="name@example.com"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#6675FF] focus:border-[#6675FF] outline-none transition-all"
+                placeholder="••••••••"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Must be at least 6 characters
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={emailLoading || googleLoading}
+              className="w-full py-4 bg-[#6675FF] text-white font-medium rounded-2xl shadow-lg shadow-[#6675FF]/25 hover:bg-[#5563dd] hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {emailLoading ? "Creating Account..." : "Create Account"}
+            </button>
+          </form>
+
+          <div className="relative flex items-center justify-center mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
+            </div>
+            <span className="relative bg-white/80 px-4 text-sm text-gray-500">
+              or continue with
+            </span>
+          </div>
+
           {/* Google Sign In Button */}
           <button
             onClick={handleGoogleSignIn}
-            disabled={googleLoading}
+            disabled={googleLoading || emailLoading}
             type="button"
             className="group relative w-full py-4 bg-white border-2 border-gray-200 text-[#171717] font-medium rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#6675FF]/50 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -164,7 +283,7 @@ export default function SignupForm() {
                 />
               </svg>
               <span>
-                {googleLoading ? "Connecting..." : "Continue with Google"}
+                {googleLoading ? "Connecting..." : "Google"}
               </span>
             </span>
           </button>
@@ -188,6 +307,17 @@ export default function SignupForm() {
               </Link>
             </p>
           </div>
+          
+           {/* Sign In Link */}
+           <p className="text-center text-sm text-gray-600 mt-4">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="text-[#6675FF] font-medium hover:underline"
+            >
+              Log in
+            </Link>
+          </p>
         </div>
 
         {/* Bottom Security Badge */}
@@ -206,7 +336,7 @@ export default function SignupForm() {
                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
               />
             </svg>
-            <span>Secured with Google OAuth</span>
+            <span>Secured with Supabase</span>
           </div>
         </div>
       </div>

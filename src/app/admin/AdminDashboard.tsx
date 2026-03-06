@@ -113,6 +113,42 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleApproveVerification = async (userId: string) => {
+    try {
+      const res = await fetch("/api/admin/verify-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, action: "approve" }),
+      });
+      if (res.ok) {
+        // Optimistically update the UI
+        setEntries(entries.map(e => e.id === userId ? { ...e, email_verified: true, institutional_email: "Manual Approval" } : e));
+      } else {
+        alert("Failed to approve user");
+      }
+    } catch (error) {
+      console.error("Error approving user:", error);
+    }
+  };
+
+  const handleRejectVerification = async (userId: string) => {
+    try {
+      const res = await fetch("/api/admin/verify-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, action: "reject" }),
+      });
+      if (res.ok) {
+        // Optimistically update the UI
+        setEntries(entries.map(e => e.id === userId ? { ...e, institutional_email: "REJECTED" } : e));
+      } else {
+        alert("Failed to reject user");
+      }
+    } catch (error) {
+      console.error("Error rejecting user:", error);
+    }
+  };
+
   const fetchEntries = async () => {
     try {
       const res = await fetch("/api/admin/waitlist");
@@ -425,13 +461,13 @@ export default function AdminDashboard() {
             <p className="text-sm text-gray-500">Total Profiles</p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
-            <p className="text-3xl font-semibold text-blue-600">
+            <p className="text-3xl font-semibold text-[#6675FF]">
               {stats.hosts}
             </p>
             <p className="text-sm text-gray-500">Hosts</p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
-            <p className="text-3xl font-semibold text-purple-600">
+            <p className="text-3xl font-semibold text-[#4d5ce6]">
               {stats.riders}
             </p>
             <p className="text-sm text-gray-500">Riders</p>
@@ -607,6 +643,9 @@ export default function AdminDashboard() {
                       )}
                     </span>
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -637,13 +676,34 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <p className="text-sm text-gray-600">
-                          {entry.institutional_email}
+                          {entry.institutional_email === "REJECTED" ? "Rejected" : entry.institutional_email === "Manual Approval" ? "Manual Approval" : entry.institutional_email || "No Edu Mail"}
                         </p>
                         <span
-                          className={`text-xs ${entry.email_verified ? "text-green-600" : "text-orange-500"}`}
+                          className={`text-xs ${entry.email_verified ? "text-green-600" : entry.institutional_email === "REJECTED" ? "text-red-500" : "text-orange-500"}`}
                         >
-                          {entry.email_verified ? "✓ Verified" : "⏳ Pending"}
+                          {entry.email_verified ? "✓ Verified" : entry.institutional_email === "REJECTED" ? "❌ Rejected" : "⏳ Pending"}
                         </span>
+                        {!entry.email_verified && !entry.institutional_email && (
+                           <div className="mt-1">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase bg-amber-100 text-amber-700">
+                                Manual: Pending
+                              </span>
+                           </div>
+                        )}
+                        {!entry.email_verified && entry.institutional_email === "REJECTED" && (
+                           <div className="mt-1">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase bg-red-100 text-red-700">
+                                Manual: Rejected
+                              </span>
+                           </div>
+                        )}
+                        {entry.email_verified && entry.institutional_email === "Manual Approval" && (
+                           <div className="mt-1">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase bg-green-100 text-green-700">
+                                Manual: Approved
+                              </span>
+                           </div>
+                        )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <span
@@ -684,12 +744,12 @@ export default function AdminDashboard() {
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex flex-col gap-1">
                           {entry.prefer_hosting && (
-                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-lg border bg-blue-50 text-blue-700 border-blue-200">
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-lg border bg-[#6675FF]/10 text-[#4d5ce6] border-[#8892ff]/30">
                               Host
                             </span>
                           )}
                           {entry.prefer_taking_ride && (
-                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-lg border bg-purple-50 text-purple-700 border-purple-200">
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-lg border bg-[#4d5ce6]/10 text-[#4d5ce6] border-[#4d5ce6]/30">
                               Rider
                             </span>
                           )}
@@ -707,6 +767,24 @@ export default function AdminDashboard() {
                         <p className="text-xs text-gray-500">
                           {formatDate(entry.created_at)}
                         </p>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {!entry.email_verified && !entry.institutional_email && (
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => handleApproveVerification(entry.id)}
+                              className="text-xs font-semibold bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectVerification(entry.id)}
+                              className="text-xs font-semibold bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))
