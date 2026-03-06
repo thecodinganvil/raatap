@@ -152,103 +152,27 @@ export default function DashboardContent() {
     }
   };
 
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      if (document.getElementById("razorpay-js")) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement("script");
-      script.id = "razorpay-js";
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
   const handleConfirmMatch = async (matchId: string) => {
     try {
-      const resLoad = await loadRazorpayScript();
-      if (!resLoad) {
-        alert("Razorpay SDK failed to load. Are you online?");
-        return;
-      }
-
-      // 1. Create Order
-      const orderResponse = await fetch("/api/razorpay/create-order", {
+      const confirmResponse = await fetch("/api/matches/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: 19, currency: "INR" }),
+        body: JSON.stringify({
+          matchId,
+          riderId: user?.id
+        }),
       });
-      const orderData = await orderResponse.json();
 
-      if (!orderData.success) {
-        alert("Failed to create payment order. Please try again.");
-        return;
+      if (confirmResponse.ok) {
+        alert("Ride Confirmed! You are now part of the pod.");
+        setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
+      } else {
+        const data = await confirmResponse.json();
+        alert(`Failed to confirm ride: ${data.error}`);
       }
-
-      // 2. Open Razorpay Checkout
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, // Use test key
-        amount: orderData.order.amount,
-        currency: orderData.order.currency,
-        name: "Raatap",
-        description: "Pod Confirmation Fee",
-        order_id: orderData.order.id,
-        handler: async function (response: any) {
-          // 3. Verify Payment
-          const verifyResponse = await fetch("/api/razorpay/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          });
-          const verifyData = await verifyResponse.json();
-
-          if (verifyData.success) {
-            // 4. Confirm Match in DB
-            const confirmResponse = await fetch("/api/matches/confirm", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                matchId, 
-                riderId: user?.id 
-              }),
-            });
-
-            if (confirmResponse.ok) {
-              alert("Payment successful! Ride Confirmed! You are now part of the pod.");
-              setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
-            } else {
-              const data = await confirmResponse.json();
-              alert(`Payment successful, but failed to confirm ride: ${data.error}`);
-            }
-          } else {
-            alert("Payment verification failed! Please contact support.");
-          }
-        },
-        prefill: {
-          name: formData.full_name,
-          email: institutionalEmail || "rider@raatap.com",
-          contact: formData.phone_number,
-        },
-        theme: {
-          color: "#6675FF",
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on("payment.failed", function (response: any) {
-        alert(`Payment failed: ${response.error.description}`);
-      });
-      rzp.open();
-
     } catch (error) {
       console.error("Error confirming match:", error);
+      alert("Error confirming match. Please try again.");
     }
   };
 
