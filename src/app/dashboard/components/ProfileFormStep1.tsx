@@ -208,6 +208,33 @@ export default function ProfileFormStep1({
         )}
       </div>
 
+      {/* Student ID */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">
+          Student ID Number
+        </label>
+        <input
+          type="text"
+          value={formData.student_id}
+          onChange={(e) => {
+            setFormData((prev: any) => ({
+              ...prev,
+              student_id: e.target.value,
+            }));
+            if (errors.student_id)
+              setErrors((prev) => ({ ...prev, student_id: "" }));
+          }}
+          className={`w-full px-4 py-3.5 border-2 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all ${errors.student_id ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#6675FF] focus:ring-[#6675FF]/10"}`}
+          placeholder="e.g., 2303A51001"
+          required
+        />
+        {errors.student_id && (
+          <p className="text-red-500 text-xs mt-1 ml-1">
+            {errors.student_id}
+          </p>
+        )}
+      </div>
+
       {/* Route Section */}
       <div className="bg-gradient-to-r from-[#6675FF]/5 to-transparent rounded-2xl p-5 border border-[#6675FF]/20">
         <h3 className="text-sm font-semibold text-[#6675FF] mb-4 flex items-center gap-2">
@@ -262,31 +289,6 @@ export default function ProfileFormStep1({
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5 ml-1">
-              Landmark (Optional)
-            </label>
-            <input
-              type="text"
-              value={formData.landmark}
-              onChange={(e) => {
-                setFormData((prev: any) => ({
-                  ...prev,
-                  landmark: e.target.value,
-                }));
-                if (errors.landmark)
-                  setErrors((prev) => ({ ...prev, landmark: "" }));
-              }}
-              className={`w-full px-4 py-3.5 border-2 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all ${errors.landmark ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#6675FF] focus:ring-[#6675FF]/10"}`}
-              placeholder="e.g., Near Gachibowli Stadium"
-            />
-            {errors.landmark && (
-              <p className="text-red-500 text-xs mt-1 ml-1">
-                {errors.landmark}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5 ml-1">
               To (College/Destination)
             </label>
             <LocationInput
@@ -310,6 +312,31 @@ export default function ProfileFormStep1({
               error={errors.to_location}
             />
           </div>
+        </div>
+
+        <div className="mt-3">
+          <label className="block text-xs font-medium text-gray-600 mb-1.5 ml-1">
+            Landmark (Optional)
+          </label>
+          <input
+            type="text"
+            value={formData.landmark}
+            onChange={(e) => {
+              setFormData((prev: any) => ({
+                ...prev,
+                landmark: e.target.value,
+              }));
+              if (errors.landmark)
+                setErrors((prev) => ({ ...prev, landmark: "" }));
+            }}
+            className={`w-full px-4 py-3.5 border-2 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all ${errors.landmark ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#6675FF] focus:ring-[#6675FF]/10"}`}
+            placeholder="e.g., Near Gachibowli Stadium"
+          />
+          {errors.landmark && (
+            <p className="text-red-500 text-xs mt-1 ml-1">
+              {errors.landmark}
+            </p>
+          )}
         </div>
       </div>
 

@@ -108,15 +108,16 @@ export default function SignupForm() {
     }
 
     try {
+      console.log("Signing up with:", { email, passwordLength: password.length });
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-        },
       });
 
+      console.log("Signup response:", { data, error });
+
       if (error) {
+        console.error("Supabase error details:", error);
         setError(error.message);
       } else if (data.user && data.user.identities?.length === 0) {
          setError("This email is already registered. Please sign in instead.");
@@ -228,14 +229,14 @@ export default function SignupForm() {
                 id="password"
                 type="password"
                 required
-                minLength={6}
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#6675FF] focus:border-[#6675FF] outline-none transition-all"
                 placeholder="••••••••"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Must be at least 6 characters
+                Must be at least 8 characters
               </p>
             </div>
             <button
