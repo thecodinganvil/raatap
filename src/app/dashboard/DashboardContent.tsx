@@ -1462,6 +1462,27 @@ export default function DashboardContent() {
                     />
                   </div>
                 </div>
+
+                {/* Landmark */}
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5 ml-1">
+                    Landmark (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Near Gachibowli Stadium"
+                    value={formData.landmark}
+                    onChange={(e) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        landmark: e.target.value,
+                      }));
+                      if (errors.landmark)
+                        setErrors((prev) => ({ ...prev, landmark: "" }));
+                    }}
+                    className="w-full px-5 py-3.5 border-2 border-gray-200 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:border-[#6675FF] focus:ring-[#6675FF]/10 transition-all"
+                  />
+                </div>
               </div>
 
               {/* Time Windows */}
