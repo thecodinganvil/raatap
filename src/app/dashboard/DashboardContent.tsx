@@ -31,6 +31,7 @@ interface FormData {
   vehicle_type: string; // 2_wheeler, 4_wheeler
   comfortable_with: string; // male, female, both
   agreed_to_terms: boolean;
+  agreed_to_policies: boolean;
 }
 
 export const COLLEGES = [
@@ -101,6 +102,7 @@ export default function DashboardContent() {
     vehicle_type: "",
     comfortable_with: "",
     agreed_to_terms: false,
+    agreed_to_policies: false,
   });
 
   const handleAcceptMatch = async (matchId: string, riderName: string) => {
@@ -1798,8 +1800,8 @@ export default function DashboardContent() {
                 )}
               </div>
 
-              {/* Agreement checkbox */}
-              <div>
+              {/* Agreement checkboxes */}
+              <div className="space-y-3">
                 <label
                   className={`flex items-start gap-3 cursor-pointer p-4 rounded-2xl bg-amber-50 border-2 hover:bg-amber-100/50 transition-colors ${errors.agreed_to_terms ? "border-red-300" : "border-amber-200/50"}`}
                 >
@@ -1826,6 +1828,42 @@ export default function DashboardContent() {
                     {errors.agreed_to_terms}
                   </p>
                 )}
+
+                <label
+                  className="flex items-start gap-3 cursor-pointer p-4 rounded-2xl bg-amber-50 border-2 border-amber-200/50 hover:bg-amber-100/50 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.agreed_to_policies}
+                    onChange={(e) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        agreed_to_policies: e.target.checked,
+                      }));
+                    }}
+                    className="w-5 h-5 text-[#6675FF] border-2 border-gray-300 rounded mt-0.5 focus:ring-2 focus:ring-[#6675FF]/50"
+                  />
+                  <span className="text-sm text-gray-700 leading-relaxed">
+                    I have read the{" "}
+                    <a
+                      href="/terms_&_conditions"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#6675FF] font-medium hover:underline"
+                    >
+                      Terms and Conditions
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      href="/privacy_policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#6675FF] font-medium hover:underline"
+                    >
+                      Privacy Policy
+                    </a>
+                  </span>
+                </label>
               </div>
 
               <button
