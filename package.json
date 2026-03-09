@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:deploy": "supabase db push",
+    "db:migrate": "node scripts/deploy-db.js",
+    "db:check": "node check-db.js",
+    "supabase:login": "supabase login",
+    "supabase:link": "supabase link --project-ref"
   },
   "dependencies": {
     "@react-google-maps/api": "^2.20.8",

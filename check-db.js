@@ -1,4 +1,4 @@
-// Check Supabase tables
+// Check Supabase tables and functions
 const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -46,6 +46,59 @@ async function checkTables() {
     .select('id, ride_template_id, ride_request_id, overall_score, status');
   if (mError) console.error('Error:', mError);
   else console.log(`Count: ${matches?.length || 0}`);
+
+  console.log('\n=== PODS ===');
+  const { data: pods, error: podError } = await supabase
+    .from('pods')
+    .select('id, host_id, status, name');
+  if (podError) console.error('Error:', podError);
+  else console.log(`Count: ${pods?.length || 0}`);
+
+  console.log('\n=== POD MEMBERS ===');
+  const { data: members, error: memError } = await supabase
+    .from('pod_members')
+    .select('id, pod_id, rider_id, status');
+  if (memError) console.error('Error:', memError);
+  else console.log(`Count: ${members?.length || 0}`);
+
+  console.log('\n=== DATABASE FUNCTIONS ===');
+  const functionsToCheck = [
+    'accept_match_suggestion',
+    'confirm_match_suggestion',
+    'skip_match_suggestion',
+    'generate_all_matches',
+    'expire_pending_matches_if_full'
+  ];
+  
+  for (const funcName of functionsToCheck) {
+    const { data, error } = await supabase.rpc(funcName);
+    if (error) {
+      console.log(`  ❌ ${funcName}: NOT FOUND or ERROR`);
+    } else {
+      console.log(`  ✅ ${funcName}: OK`);
+    }
+  }
+
+  console.log('\n=== TRIGGERS ===');
+  const { data: triggerData, error: trigError } = await supabase
+    .from('profiles')
+    .select('id')
+    .limit(1);
+  
+  if (trigError) {
+    console.log('  ⚠️  Could not verify triggers');
+  } else {
+    console.log('  ℹ️  To verify triggers, run in Supabase SQL Editor:');
+    console.log('     SELECT * FROM pg_trigger WHERE tgname = \'on_profile_update_create_ride\';');
+  }
+
+  console.log('\n=== SUMMARY ===');
+  console.log(`Total Profiles: ${profiles?.length || 0}`);
+  console.log(`Total Ride Templates: ${templates?.length || 0}`);
+  console.log(`Total Ride Requests: ${requests?.length || 0}`);
+  console.log(`Total Match Suggestions: ${matches?.length || 0}`);
+  console.log(`Total Pods: ${pods?.length || 0}`);
+  console.log(`Total Pod Members: ${members?.length || 0}`);
 }
 
-checkTables();
+checkTables().catch(console.error);
