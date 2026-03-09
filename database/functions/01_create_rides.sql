@@ -1,4 +1,5 @@
 -- Function to create ride_template from profile (HOST only)
+-- Requires: prefer_hosting = true AND email_verified = true
 CREATE OR REPLACE FUNCTION create_ride_template_from_profile(
     user_id UUID,
     p_vehicle_type TEXT,
@@ -16,37 +17,42 @@ DECLARE
     role_check BOOLEAN;
 BEGIN
     -- Validate user role (must be host)
-    SELECT prefer_hosting INTO role_check 
-    FROM profiles 
+    SELECT prefer_hosting INTO role_check
+    FROM profiles
     WHERE id = user_id;
-    
+
     IF role_check != true THEN
         RETURN json_build_object('success', false, 'error', 'Only hosts can create ride templates');
     END IF;
-    
+
     -- Get profile data
     SELECT * INTO user_profile
     FROM profiles
     WHERE id = user_id AND prefer_hosting = true;
-    
+
     IF NOT FOUND THEN
         RETURN json_build_object('success', false, 'error', 'Profile not found or not a host');
     END IF;
-    
+
+    -- Check email verification
+    IF user_profile.email_verified != true THEN
+        RETURN json_build_object('success', false, 'error', 'Email verification required. Please verify your institutional email.');
+    END IF;
+
     -- Validate required fields
     IF user_profile.from_lat IS NULL OR user_profile.from_lng IS NULL OR
        user_profile.to_lat IS NULL OR user_profile.to_lng IS NULL THEN
         RETURN json_build_object('success', false, 'error', 'Profile coordinates are required');
     END IF;
-    
+
     IF user_profile.leave_home_time IS NULL THEN
         RETURN json_build_object('success', false, 'error', 'Leave home time is required');
     END IF;
-    
+
     IF user_profile.days_of_commute IS NULL OR array_length(user_profile.days_of_commute, 1) = 0 THEN
         RETURN json_build_object('success', false, 'error', 'Days of commute are required');
     END IF;
-    
+
     -- Create ride_template
     INSERT INTO ride_templates (
         host_id,
@@ -83,21 +89,22 @@ BEGIN
         p_max_detour_meters,
         COALESCE(user_profile.comfortable_with, 'both')
     ) RETURNING id INTO new_ride_template;
-    
+
     -- Trigger matching for existing ride_requests
     -- PERFORM generate_match_suggestions_for_ride_template(new_ride_template);
-    
+
     RETURN json_build_object(
         'success', true,
         'ride_template_id', new_ride_template,
         'message', 'Ride template created successfully'
     );
-    
+
     -- (No exception handling for debug purposes)
 END;
 $$;
 
 -- Function to create ride_request from profile (RIDER only)
+-- Requires: prefer_taking_ride = true AND email_verified = true
 CREATE OR REPLACE FUNCTION create_ride_request_from_profile(
     user_id UUID,
     p_preferred_arrival_time TIME,
@@ -115,33 +122,38 @@ DECLARE
     role_check BOOLEAN;
 BEGIN
     -- Validate user role (must be rider)
-    SELECT prefer_taking_ride INTO role_check 
-    FROM profiles 
+    SELECT prefer_taking_ride INTO role_check
+    FROM profiles
     WHERE id = user_id;
-    
+
     IF role_check != true THEN
         RETURN json_build_object('success', false, 'error', 'Only riders can create ride requests');
     END IF;
-    
+
     -- Get profile data
     SELECT * INTO user_profile
     FROM profiles
     WHERE id = user_id AND prefer_taking_ride = true;
-    
+
     IF NOT FOUND THEN
         RETURN json_build_object('success', false, 'error', 'Profile not found or not a rider');
     END IF;
-    
+
+    -- Check email verification
+    IF user_profile.email_verified != true THEN
+        RETURN json_build_object('success', false, 'error', 'Email verification required. Please verify your institutional email.');
+    END IF;
+
     -- Validate required fields
     IF user_profile.from_lat IS NULL OR user_profile.from_lng IS NULL OR
        user_profile.to_lat IS NULL OR user_profile.to_lng IS NULL THEN
         RETURN json_build_object('success', false, 'error', 'Profile coordinates are required');
     END IF;
-    
+
     IF user_profile.days_of_commute IS NULL OR array_length(user_profile.days_of_commute, 1) = 0 THEN
         RETURN json_build_object('success', false, 'error', 'Days of commute are required');
     END IF;
-    
+
     -- Create ride_request
     INSERT INTO ride_requests (
         rider_id,
@@ -176,16 +188,16 @@ BEGIN
         p_vehicle_preference,
         p_gender_preference
     ) RETURNING id INTO new_ride_request;
-    
+
     -- Trigger matching for existing ride_templates
     -- PERFORM generate_match_suggestions_for_ride_request(new_ride_request);
-    
+
     RETURN json_build_object(
         'success', true,
         'ride_request_id', new_ride_request,
         'message', 'Ride request created successfully'
     );
-    
+
     -- (No exception handling for debug purposes)
 END;
 $$;

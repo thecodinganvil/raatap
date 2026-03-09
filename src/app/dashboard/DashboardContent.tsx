@@ -71,6 +71,12 @@ export default function DashboardContent() {
   const [confirmedPods, setConfirmedPods] = useState<any>(null); // { host_pods: [], rider_rides: [] }
   const [loadingPods, setLoadingPods] = useState(false);
 
+  // Notification/Toast state
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
+
   // OTP Verification states
   const [verificationStep, setVerificationStep] = useState<"otp" | null>(null);
   const [hasInstitutionalEmail, setHasInstitutionalEmail] = useState<boolean | null>(null);
@@ -105,32 +111,39 @@ export default function DashboardContent() {
     agreed_to_policies: false,
   });
 
+  // Helper function to show notifications
+  const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
+    setNotification({ type, message });
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => setNotification(null), 5000);
+  };
+
   const handleAcceptMatch = async (matchId: string, riderName: string) => {
     try {
       const response = await fetch("/api/matches/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          matchId, 
-          hostId: user?.id 
+        body: JSON.stringify({
+          matchId,
+          hostId: user?.id
         }),
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Optimistic update or refetch
-        alert(`You accepted the request from ${riderName}! Contact info would be revealed here.`);
-        // In a real app, we might move to a "Matched" tab or show a modal with details
-        // For now, let's just remove it from the list to show "We are matching you up" or next match
+        showNotification('success', `Accepted request from ${riderName}!`);
+        // Remove accepted match from queue
         setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
+        // Refresh pods to show updated seat count
+        if (user?.id) fetchConfirmedPods(user.id);
       } else {
         console.error("Failed to accept match", data.error);
-        alert(`Failed to accept match: ${data.error || "Unknown error"}`);
+        showNotification('error', data.error || 'Failed to accept match');
       }
     } catch (error) {
       console.error("Error accepting match:", error);
-      alert("Error accepting match. Please try again.");
+      showNotification('error', 'Error accepting match. Please try again.');
     }
   };
 
@@ -139,20 +152,25 @@ export default function DashboardContent() {
       const response = await fetch("/api/matches/skip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          matchId, 
+        body: JSON.stringify({
+          matchId,
           userId: user?.id,
           userRole: 'host'
         }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        showNotification('info', 'Skipped this match');
         setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
       } else {
-        console.error("Failed to skip match");
+        console.error("Failed to skip match", data.error);
+        showNotification('error', data.error || 'Failed to skip match');
       }
     } catch (error) {
       console.error("Error skipping match:", error);
+      showNotification('error', 'Error skipping match. Please try again.');
     }
   };
 
@@ -167,40 +185,46 @@ export default function DashboardContent() {
         }),
       });
 
-      if (confirmResponse.ok) {
-        alert("Ride Confirmed! You are now part of the pod.");
+      const data = await confirmResponse.json();
+
+      if (confirmResponse.ok && data.success) {
+        showNotification('success', 'Ride confirmed! You are now part of the pod.');
         setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
+        // Refresh pods to show the confirmed ride
+        if (user?.id) fetchConfirmedPods(user.id);
       } else {
-        const data = await confirmResponse.json();
-        alert(`Failed to confirm ride: ${data.error}`);
+        showNotification('error', data.error || 'Failed to confirm ride');
       }
     } catch (error) {
       console.error("Error confirming match:", error);
-      alert("Error confirming match. Please try again.");
+      showNotification('error', 'Error confirming match. Please try again.');
     }
   };
-
-
 
   const handleRejectMatch = async (matchId: string) => {
     try {
       const response = await fetch("/api/matches/skip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          matchId, 
+        body: JSON.stringify({
+          matchId,
           userId: user?.id,
-          userRole: 'rider' 
+          userRole: 'rider'
         }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        showNotification('info', 'Rejected this match');
         setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
       } else {
-        console.error("Failed to reject match");
+        console.error("Failed to reject match", data.error);
+        showNotification('error', data.error || 'Failed to reject match');
       }
     } catch (error) {
       console.error("Error rejecting match:", error);
+      showNotification('error', 'Error rejecting match. Please try again.');
     }
   };
 
@@ -750,6 +774,32 @@ export default function DashboardContent() {
         </div>
 
         <div className="relative w-full max-w-lg">
+          {/* Toast Notification */}
+          {notification && (
+            <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-in ${
+              notification.type === 'success' ? 'bg-green-500 text-white' :
+              notification.type === 'error' ? 'bg-red-500 text-white' :
+              'bg-gray-800 text-white'
+            }`}>
+              {notification.type === 'success' && (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              {notification.type === 'error' && (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+              {notification.type === 'info' && (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span className="font-medium">{notification.message}</span>
+            </div>
+          )}
+
           {(loadingPods) && (
              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl p-8 text-center border border-white/50">
                <div className="w-12 h-12 border-4 border-[#6675FF] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -927,155 +977,14 @@ export default function DashboardContent() {
                </div>
             </div>
           )} {matchSuggestions.length > 0 && (!confirmedPods?.rider_rides?.length) && (
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50 mt-6">
-               <div className={`p-6 text-white text-center ${matchSuggestions[0].status === 'accepted' ? 'bg-green-600' : 'bg-[#6675FF]'}`}>
-                 <h2 className="text-2xl font-semibold mb-1">
-                    {matchSuggestions[0].status === 'accepted' ? 'Host Accepted! Please Confirm' : 'Top Match Found!'}
-                 </h2>
-                 <p className="opacity-90">
-                    {matchSuggestions[0].status === 'accepted' ? 'Your ride is ready to go' : 'Based on your route and schedule'}
-                 </p>
-               </div>
-               
-               <div className="p-8">
-                 {/* Check if we are viewing as Host (looking at Rider) or Rider (looking at Host) */}
-                 {matchSuggestions[0].view_type === 'host' ? (
-                   // HOST VIEW
-                   <>
-                     <div className="flex items-center gap-4 mb-6">
-                       <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xl font-bold">
-                         {matchSuggestions[0].ride_requests.profiles.full_name?.charAt(0) || "R"}
-                       </div>
-                       <div>
-                         <h3 className="text-xl font-semibold text-gray-800">
-                            Rider Request
-                         </h3>
-                         <p className="text-gray-500 text-sm">
-                           {matchSuggestions[0].ride_requests.profiles.student_year || "Student"} • {matchSuggestions[0].ride_requests.profiles.gender}
-                         </p>
-                         <div className="flex items-center gap-1 mt-1">
-                           <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                             {Math.round(matchSuggestions[0].overall_score * 100)}% Match
-                           </span>
-                         </div>
-                       </div>
-                     </div>
-
-                     <div className="space-y-4 mb-8">
-                       <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-[#6675FF]/10 p-1.5 rounded-lg text-[#6675FF]">
-                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                         </div>
-                         <div>
-                           <p className="text-xs text-gray-500 uppercase font-semibold">Pickup</p>
-                           <p className="text-gray-700">{matchSuggestions[0].ride_requests.pickup_location}</p>
-                         </div>
-                       </div>
-                       
-                       <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-[#4d5ce6]/10 p-1.5 rounded-lg text-[#4d5ce6]">
-                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                         </div>
-                         <div>
-                            <p className="text-xs text-gray-500 uppercase font-semibold">Detour</p>
-                            <p className="text-gray-700">
-                              {matchSuggestions[0].detour_distance_meters 
-                                ? `${(matchSuggestions[0].detour_distance_meters / 1000).toFixed(1)} km` 
-                                : "Minimal detour"}
-                            </p>
-                         </div>
-                       </div>
-                     </div>
-
-                      <div className="flex gap-3 mt-6">
-                       <button 
-                         onClick={() => handleSkipMatch(matchSuggestions[0].id)}
-                         className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
-                       >
-                         Skip
-                       </button>
-                       <button 
-                         onClick={() => handleAcceptMatch(matchSuggestions[0].id, matchSuggestions[0].ride_requests.profiles.full_name)}
-                         className="flex-1 py-3.5 bg-[#6675FF] hover:bg-[#5b6ae0] text-white rounded-xl font-medium transition-colors shadow-lg shadow-[#6675FF]/20"
-                       >
-                         Accept Request
-                       </button>
-                     </div>
-                     <p className="text-xs text-gray-400 text-center mt-3">
-                       Contact info will be revealed after acceptance
-                     </p>
-                   </>
-                 ) : matchSuggestions[0].view_type === 'rider' ? (
-                   // RIDER VIEW
-                   <>
-                     <div className="flex items-center gap-4 mb-6">
-                       <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xl font-bold">
-                         {matchSuggestions[0].ride_templates.profiles.full_name?.charAt(0) || "H"}
-                       </div>
-                       <div>
-                         <h3 className="text-xl font-semibold text-gray-800">
-                            Host Matches You!
-                         </h3>
-                         <p className="text-gray-500 text-sm">
-                           {matchSuggestions[0].ride_templates.vehicle_type === '2_wheeler' ? 'Bike' : 'Car'} • {matchSuggestions[0].ride_templates.profiles.gender}
-                         </p>
-                         <div className="flex items-center gap-1 mt-1">
-                           <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                             Accepted!
-                           </span>
-                         </div>
-                       </div>
-                     </div>
-
-                     <div className="space-y-4 mb-8">
-                       <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-[#6675FF]/10 p-1.5 rounded-lg text-[#6675FF]">
-                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                         </div>
-                         <div>
-                           <p className="text-xs text-gray-500 uppercase font-semibold">Route</p>
-                           <p className="text-gray-700">{matchSuggestions[0].ride_templates.from_location} → {matchSuggestions[0].ride_templates.to_location}</p>
-                         </div>
-                       </div>
-                       
-                       <div className="flex items-start gap-3">
-                         <div className="mt-1 bg-[#4d5ce6]/10 p-1.5 rounded-lg text-[#4d5ce6]">
-                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                         </div>
-                         <div>
-                            <p className="text-xs text-gray-500 uppercase font-semibold">Departure</p>
-                            <p className="text-gray-700">
-                              {matchSuggestions[0].ride_templates.departure_time}
-                            </p>
-                         </div>
-                       </div>
-                     </div>
-
-                      <div className="flex gap-3 mt-6">
-                       <button 
-                         onClick={() => handleRejectMatch(matchSuggestions[0].id)}
-                         className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
-                       >
-                         Reject
-                       </button>
-                       <button 
-                         onClick={() => handleConfirmMatch(matchSuggestions[0].id)}
-                         className="flex-1 py-3.5 bg-[#10b981] hover:bg-[#059669] text-white rounded-xl font-medium transition-colors shadow-lg shadow-[#10b981]/20"
-                       >
-                         Confirm Ride
-                       </button>
-                     </div>
-                     <p className="text-xs text-gray-400 text-center mt-3">
-                       Confirm to lock your seat (irreversible)
-                     </p>
-                   </>
-                 ) : (
-                    <div className="text-center p-4">
-                      <p>Loading details...</p>
-                    </div>
-                 )}
-               </div>
-            </div>
+            <MatchQueue 
+              matchSuggestions={matchSuggestions}
+              onAcceptMatch={handleAcceptMatch}
+              onSkipMatch={handleSkipMatch}
+              onConfirmMatch={handleConfirmMatch}
+              onRejectMatch={handleRejectMatch}
+              user={user}
+            />
           )} {(!confirmedPods?.rider_rides?.length && !confirmedPods?.host_pods?.length && matchSuggestions.length === 0) && (
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 p-8 md:p-10 border border-white/50 text-center">
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-[#6675FF] to-[#8892ff] flex items-center justify-center animate-pulse">
@@ -2225,5 +2134,269 @@ export default function DashboardContent() {
         </div>
       </div>
     </main>
+  );
+}
+
+// Match Queue Component - Shows matches based on vehicle type queue limit
+interface MatchQueueProps {
+  matchSuggestions: any[];
+  onAcceptMatch: (matchId: string, riderName: string) => void;
+  onSkipMatch: (matchId: string) => void;
+  onConfirmMatch: (matchId: string) => void;
+  onRejectMatch: (matchId: string) => void;
+  user: User | null;
+}
+
+function MatchQueue({ 
+  matchSuggestions, 
+  onAcceptMatch, 
+  onSkipMatch, 
+  onConfirmMatch, 
+  onRejectMatch,
+  user
+}: MatchQueueProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const currentMatch = matchSuggestions[currentIndex];
+
+  // Determine queue info based on vehicle type
+  const vehicleType = currentMatch?.ride_templates?.vehicle_type || currentMatch?.ride_requests?.vehicle_preference || 'any';
+  const isHostView = currentMatch?.view_type === 'host';
+  const queueInfo = vehicleType === '2_wheeler' 
+    ? { current: currentIndex + 1, total: 1, label: 'Bike Pool - Single Match' }
+    : { current: currentIndex + 1, total: Math.min(matchSuggestions.length, 3), label: 'Car Pool - Up to 3 Matches' };
+
+  if (!currentMatch) {
+    return (
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50 mt-6">
+        <div className="p-8 text-center">
+          <p className="text-gray-500">Loading match details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleNext = () => {
+    if (currentIndex < matchSuggestions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
+  const handleActionWithNavigation = (action: () => void, shouldNavigate: boolean = true) => {
+    action();
+    if (shouldNavigate && currentIndex < matchSuggestions.length - 1) {
+      // Navigate to next after action
+      setTimeout(() => {
+        setCurrentIndex(prev => prev + 1);
+      }, 300);
+    }
+  };
+
+  return (
+    <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50 mt-6">
+      {/* Header with queue indicator */}
+      <div className={`p-6 text-white text-center relative ${currentMatch.status === 'accepted' ? 'bg-green-600' : 'bg-[#6675FF]'}`}>
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={handlePrev}
+            disabled={currentIndex === 0}
+            className="p-2 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold mb-1">
+              {currentMatch.status === 'accepted' ? 'Host Accepted! Please Confirm' : 'Top Match Found!'}
+            </h2>
+            <p className="opacity-90 text-sm">
+              {currentMatch.status === 'accepted' ? 'Your ride is ready to go' : 'Based on your route and schedule'}
+            </p>
+          </div>
+
+          <button
+            onClick={handleNext}
+            disabled={currentIndex >= matchSuggestions.length - 1}
+            className="p-2 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Queue Progress Dots */}
+        <div className="flex justify-center gap-2 mt-4">
+          {matchSuggestions.slice(0, queueInfo.total).map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                idx === currentIndex 
+                  ? 'bg-white w-6' 
+                  : 'bg-white/40 hover:bg-white/60'
+              }`}
+              aria-label={`Go to match ${idx + 1}`}
+            />
+          ))}
+        </div>
+        
+        {/* Queue info badge */}
+        <div className="absolute top-3 right-3 bg-white/20 px-3 py-1 rounded-full text-xs font-medium">
+          {queueInfo.label} • {currentIndex + 1} of {queueInfo.total}
+        </div>
+      </div>
+
+      <div className="p-8">
+        {isHostView ? (
+          // HOST VIEW - Reviewing Rider Requests
+          <>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xl font-bold">
+                {currentMatch.ride_requests.profiles.full_name?.charAt(0) || "R"}
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-800">
+                  Rider Request #{currentIndex + 1}
+                </h3>
+                <p className="text-gray-500 text-sm">
+                  {currentMatch.ride_requests.profiles.student_year || "Student"} • {currentMatch.ride_requests.profiles.gender}
+                </p>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                    {Math.round(currentMatch.overall_score * 100)}% Match
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 bg-[#6675FF]/10 p-1.5 rounded-lg text-[#6675FF]">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Pickup</p>
+                  <p className="text-gray-700">{currentMatch.ride_requests.pickup_location}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="mt-1 bg-[#4d5ce6]/10 p-1.5 rounded-lg text-[#4d5ce6]">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Detour</p>
+                  <p className="text-gray-700">
+                    {currentMatch.detour_distance_meters
+                      ? `${(currentMatch.detour_distance_meters / 1000).toFixed(1)} km`
+                      : "Minimal detour"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => handleActionWithNavigation(() => onSkipMatch(currentMatch.id), false)}
+                className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+              >
+                Skip
+              </button>
+              <button
+                onClick={() => handleActionWithNavigation(() => onAcceptMatch(currentMatch.id, currentMatch.ride_requests.profiles.full_name), false)}
+                className="flex-1 py-3.5 bg-[#6675FF] hover:bg-[#5b6ae0] text-white rounded-xl font-medium transition-colors shadow-lg shadow-[#6675FF]/20"
+              >
+                Accept Request
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 text-center mt-3">
+              Contact info will be revealed after acceptance
+            </p>
+          </>
+        ) : (
+          // RIDER VIEW - Reviewing Host Matches
+          <>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xl font-bold">
+                {currentMatch.ride_templates.profiles.full_name?.charAt(0) || "H"}
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-800">
+                  Host Match #{currentIndex + 1}
+                </h3>
+                <p className="text-gray-500 text-sm">
+                  {currentMatch.ride_templates.vehicle_type === '2_wheeler' ? 'Bike' : 'Car'} • {currentMatch.ride_templates.profiles.gender}
+                </p>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                    Accepted!
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 bg-[#6675FF]/10 p-1.5 rounded-lg text-[#6675FF]">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Route</p>
+                  <p className="text-gray-700">{currentMatch.ride_templates.from_location} → {currentMatch.ride_templates.to_location}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="mt-1 bg-[#4d5ce6]/10 p-1.5 rounded-lg text-[#4d5ce6]">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Departure</p>
+                  <p className="text-gray-700">
+                    {currentMatch.ride_templates.departure_time}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => handleActionWithNavigation(() => onRejectMatch(currentMatch.id), false)}
+                className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+              >
+                Reject
+              </button>
+              <button
+                onClick={() => handleActionWithNavigation(() => onConfirmMatch(currentMatch.id), false)}
+                className="flex-1 py-3.5 bg-[#10b981] hover:bg-[#059669] text-white rounded-xl font-medium transition-colors shadow-lg shadow-[#10b981]/20"
+              >
+                Confirm Ride
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 text-center mt-3">
+              Confirm to lock your seat (irreversible)
+            </p>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

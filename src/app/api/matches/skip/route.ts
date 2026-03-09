@@ -25,11 +25,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call the skip match function
+    // Call the skip match function with standardized p_* prefix parameters
     const { data, error } = await supabase.rpc("skip_match_suggestion", {
-      match_id: matchId,
-      user_id: userId,
-      user_role: userRole,
+      p_match_id: matchId,
+      p_user_id: userId,
+      p_user_role: userRole,
     });
 
     if (error) {
