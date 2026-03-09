@@ -51,6 +51,11 @@ export default function AdminDashboard() {
   // Unique colleges for filter dropdown
   const [colleges, setColleges] = useState<string[]>([]);
 
+  // Pods state
+  const [pods, setPods] = useState<any[]>([]);
+  const [loadingPods, setLoadingPods] = useState(false);
+  const [showPodsSection, setShowPodsSection] = useState(false);
+
   // Check if already authenticated on mount
   useEffect(() => {
     const checkAuth = async () => {
@@ -173,6 +178,25 @@ export default function AdminDashboard() {
       setColleges(uniqueColleges.sort());
     } catch (error) {
       console.error("Error fetching entries:", error);
+    }
+  };
+
+  const fetchPods = async () => {
+    setLoadingPods(true);
+    try {
+      const res = await fetch("/api/admin/pods");
+
+      if (!res.ok) {
+        console.error("Error fetching pods:", await res.text());
+        return;
+      }
+
+      const { pods: podsData } = await res.json();
+      setPods(podsData || []);
+    } catch (error) {
+      console.error("Error fetching pods:", error);
+    } finally {
+      setLoadingPods(false);
     }
   };
 
@@ -486,6 +510,24 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Pods Toggle Button */}
+        <div className="mb-6">
+          <button
+            onClick={() => {
+              setShowPodsSection(!showPodsSection);
+              if (!showPodsSection && pods.length === 0) {
+                fetchPods();
+              }
+            }}
+            className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-[#10b981] to-[#059669] text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            {showPodsSection ? 'Hide Pods' : 'View Formed Pods'}
+          </button>
+        </div>
+
         {/* Filters */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 md:p-6 border border-white/50 mb-6">
           <div className="flex flex-col md:flex-row gap-4">
@@ -793,6 +835,96 @@ export default function AdminDashboard() {
             </table>
           </div>
         </div>
+
+        {/* Pods Section */}
+        {showPodsSection && (
+          <div className="mt-8 bg-white/80 backdrop-blur-xl rounded-2xl p-6 border border-white/50">
+            <h2 className="text-xl font-semibold text-[#171717] mb-6 flex items-center gap-2">
+              <svg className="w-6 h-6 text-[#10b981]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Formed Pods ({pods.length})
+            </h2>
+
+            {loadingPods ? (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 border-4 border-[#10b981] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading pods...</p>
+              </div>
+            ) : pods.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-xl">
+                <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <p className="text-gray-500 text-lg">No pods formed yet</p>
+                <p className="text-gray-400 text-sm mt-2">Pods will appear when riders confirm matches with hosts</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {pods.map((pod: any) => (
+                  <div key={pod.id} className="border border-gray-200 rounded-xl p-5 bg-white hover:shadow-lg transition-shadow">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#10b981] to-[#059669] flex items-center justify-center text-white font-bold">
+                          {pod.host_name?.charAt(0) || 'H'}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-800">{pod.host_name || 'Host'}</h3>
+                          <p className="text-sm text-gray-500">
+                            {pod.vehicle_type === '2_wheeler' ? '🏍️ Bike' : '🚗 Car'} • {pod.status === 'active' ? 'Active' : pod.status}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-600">{pod.members?.length || 0} Riders</p>
+                        <p className="text-xs text-gray-400">{pod.seats_taken || 0}/{pod.available_seats || pod.max_seats || 4} Seats filled</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                      <div className="bg-[#6675FF]/10 p-3 rounded-lg">
+                        <p className="text-xs text-[#6675FF] font-semibold uppercase mb-1">Route</p>
+                        <p className="text-sm text-gray-700 font-medium">{pod.from_location} → {pod.to_location}</p>
+                      </div>
+                      <div className="bg-[#4d5ce6]/10 p-3 rounded-lg">
+                        <p className="text-xs text-[#4d5ce6] font-semibold uppercase mb-1">Departure</p>
+                        <p className="text-sm text-gray-700 font-medium">{pod.departure_time}</p>
+                      </div>
+                      <div className="bg-green-100 p-3 rounded-lg">
+                        <p className="text-xs text-green-700 font-semibold uppercase mb-1">Days</p>
+                        <p className="text-sm text-gray-700 font-medium">{pod.days_active?.join(', ') || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    {pod.members && pod.members.length > 0 && (
+                      <div className="border-t border-gray-100 pt-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-3">Pod Members:</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {pod.members.map((member: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xs font-bold">
+                                {member.rider_name?.charAt(0) || 'R'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">{member.rider_name || 'Rider'}</p>
+                                <p className="text-xs text-gray-500">{member.pickup_location || 'N/A'}</p>
+                              </div>
+                              <a href={`tel:${member.phone_number}`} className="w-8 h-8 flex items-center justify-center bg-green-100 text-green-600 rounded-full hover:bg-green-200 transition-colors">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* College Breakdown */}
         {colleges.length > 0 && (

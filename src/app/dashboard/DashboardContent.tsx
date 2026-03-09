@@ -40,7 +40,7 @@ export const COLLEGES = [
   "VNRVJIET",
   "VNR Vignana Jyothi Institute of Engineering and Technology",
   "CVR College of Engineering",
-  "Chaitanya Bharathi Institute of Technology",
+  "Chaitanya deemed university",
   "Gokaraju Rangaraju Institute of Engineering and Technology",
   "Other",
 ];
@@ -85,6 +85,9 @@ export default function DashboardContent() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
+
+  // State for custom college name when "Other" is selected
+  const [customCollege, setCustomCollege] = useState("");
 
   const [formData, setFormData] = useState<FormData>({
     full_name: "",
@@ -404,6 +407,9 @@ export default function DashboardContent() {
     if (!formData.gender) newErrors.gender = "Gender is required";
     if (!formData.institution)
       newErrors.institution = "Institution is required";
+    // Validate custom college if "Other" is selected
+    if (formData.institution === "Other" && !customCollege)
+      newErrors.institution = "Please enter your institution name";
     if (!formData.student_id)
       newErrors.student_id = "Student ID is required";
     if (!formData.from_location)
@@ -581,6 +587,9 @@ export default function DashboardContent() {
 
       // OTP verified, now save the profile
       setSubmitting(true);
+      // Use custom college if "Other" is selected
+      const finalInstitution = formData.institution === "Other" ? customCollege : formData.institution;
+      
       const { error: insertError } = await supabase.from("profiles").upsert(
         {
           id: user?.id,
@@ -589,7 +598,7 @@ export default function DashboardContent() {
           age: parseInt(formData.age),
           gender: formData.gender,
           student_id: formData.student_id,
-          institution: formData.institution,
+          institution: finalInstitution,
           institutional_email: institutionalEmail,
           from_location: formData.from_location,
           pickup_landmark: formData.landmark || null,
@@ -646,6 +655,9 @@ export default function DashboardContent() {
     setOtpError("");
 
     try {
+      // Use custom college if "Other" is selected
+      const finalInstitution = formData.institution === "Other" ? customCollege : formData.institution;
+      
       const { error: insertError } = await supabase.from("profiles").upsert(
         {
           id: user?.id,
@@ -654,7 +666,7 @@ export default function DashboardContent() {
           age: parseInt(formData.age),
           gender: formData.gender,
           student_id: formData.student_id,
-          institution: formData.institution,
+          institution: finalInstitution,
           institutional_email: null,
           from_location: formData.from_location,
           pickup_landmark: formData.landmark || null,
@@ -811,10 +823,10 @@ export default function DashboardContent() {
             // CONFIRMED RIDE CARD
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50">
                <div className="bg-gradient-to-r from-[#10b981] to-[#059669] p-6 text-white text-center">
-                 <h2 className="text-2xl font-semibold mb-1">Ride Confirmed!</h2>
+                 <h2 className="text-2xl font-semibold mb-1">Pod is confirmed!</h2>
                  <p className="opacity-90">Your commute is scheduled</p>
                </div>
-               
+
                <div className="p-8">
                  {/* HOST VIEW OF POD */}
                  {confirmedPods.host_pods?.length > 0 && (
@@ -1228,10 +1240,15 @@ export default function DashboardContent() {
                   <select
                     value={formData.institution}
                     onChange={(e) => {
+                      const selectedValue = e.target.value;
                       setFormData((prev) => ({
                         ...prev,
-                        institution: e.target.value,
+                        institution: selectedValue,
                       }));
+                      // Clear custom college if not "Other"
+                      if (selectedValue !== "Other") {
+                        setCustomCollege("");
+                      }
                       if (errors.institution)
                         setErrors((prev) => ({ ...prev, institution: "" }));
                     }}
@@ -1265,6 +1282,31 @@ export default function DashboardContent() {
                   <p className="text-red-500 text-xs mt-1 ml-1">
                     {errors.institution}
                   </p>
+                )}
+                {/* Custom college input when "Other" is selected */}
+                {formData.institution === "Other" && (
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5 ml-1">
+                      Please specify your institution
+                    </label>
+                    <input
+                      type="text"
+                      value={customCollege}
+                      onChange={(e) => {
+                        setCustomCollege(e.target.value);
+                        if (errors.institution)
+                          setErrors((prev) => ({ ...prev, institution: "" }));
+                      }}
+                      placeholder="e.g., XYZ Engineering College"
+                      className={`w-full px-5 py-3.5 border-2 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all ${errors.institution ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#6675FF] focus:ring-[#6675FF]/10"}`}
+                      required
+                    />
+                    {errors.institution && customCollege === "" && (
+                      <p className="text-red-500 text-xs mt-1 ml-1">
+                        Please enter your institution name
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -2264,10 +2306,10 @@ function MatchQueue({
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">
-                  Rider Request #{currentIndex + 1}
+                  {currentMatch.ride_requests.profiles.full_name || "Rider"}
                 </h3>
                 <p className="text-gray-500 text-sm">
-                  {currentMatch.ride_requests.profiles.student_year || "Student"} • {currentMatch.ride_requests.profiles.gender}
+                  {currentMatch.ride_requests.profiles.gender} • {currentMatch.ride_requests.profiles.institution}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                   <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
@@ -2285,9 +2327,27 @@ function MatchQueue({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold">Pickup</p>
+                <div className="flex-1">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Pickup Location</p>
                   <p className="text-gray-700">{currentMatch.ride_requests.pickup_location}</p>
+                  {currentMatch.ride_requests.pickup_landmark && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Landmark: {currentMatch.ride_requests.pickup_landmark}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="mt-1 bg-[#6675FF]/10 p-1.5 rounded-lg text-[#6675FF]">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Drop-off Location</p>
+                  <p className="text-gray-700">{currentMatch.ride_requests.destination_location || currentMatch.ride_requests.to_location}</p>
                 </div>
               </div>
 
@@ -2306,6 +2366,18 @@ function MatchQueue({
                   </p>
                 </div>
               </div>
+
+              <div className="flex items-start gap-3">
+                <div className="mt-1 bg-green-100 p-1.5 rounded-lg text-green-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Cost Contribution</p>
+                  <p className="text-gray-700">₹{currentMatch.ride_requests.fuel_cost_contribution || "50"} (negotiable)</p>
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-3 mt-6">
@@ -2319,7 +2391,7 @@ function MatchQueue({
                 onClick={() => handleActionWithNavigation(() => onAcceptMatch(currentMatch.id, currentMatch.ride_requests.profiles.full_name), false)}
                 className="flex-1 py-3.5 bg-[#6675FF] hover:bg-[#5b6ae0] text-white rounded-xl font-medium transition-colors shadow-lg shadow-[#6675FF]/20"
               >
-                Accept Request
+                Please wait confirming your pod
               </button>
             </div>
             <p className="text-xs text-gray-400 text-center mt-3">
@@ -2335,14 +2407,14 @@ function MatchQueue({
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">
-                  Host Match #{currentIndex + 1}
+                  {currentMatch.ride_templates.profiles.full_name || "Host"}
                 </h3>
                 <p className="text-gray-500 text-sm">
-                  {currentMatch.ride_templates.vehicle_type === '2_wheeler' ? 'Bike' : 'Car'} • {currentMatch.ride_templates.profiles.gender}
+                  {currentMatch.ride_templates.vehicle_type === '2_wheeler' ? '🏍️ Bike' : '🚗 Car'} • {currentMatch.ride_templates.profiles.gender} • {currentMatch.ride_templates.profiles.institution}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                   <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                    Accepted!
+                    Host Accepted! Please Confirm
                   </span>
                 </div>
               </div>
@@ -2369,10 +2441,36 @@ function MatchQueue({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold">Departure</p>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Departure Time</p>
                   <p className="text-gray-700">
                     {currentMatch.ride_templates.departure_time}
                   </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="mt-1 bg-purple-100 p-1.5 rounded-lg text-purple-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Vehicle Type</p>
+                  <p className="text-gray-700">
+                    {currentMatch.ride_templates.vehicle_type === '2_wheeler' ? '2 Wheeler (Bike)' : '4 Wheeler (Car)'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="mt-1 bg-green-100 p-1.5 rounded-lg text-green-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Your Cost Contribution</p>
+                  <p className="text-gray-700">₹{currentMatch.ride_requests?.fuel_cost_contribution || currentMatch.ride_templates?.fuel_cost || "50"} (negotiable)</p>
                 </div>
               </div>
             </div>
