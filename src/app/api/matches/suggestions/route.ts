@@ -26,10 +26,10 @@ export async function POST(request: NextRequest) {
     // 1. HOST CHECK: Check if user has active templates
     const { data: templates, error: templatesError } = await supabase
       .from("ride_templates")
-      .select("id")
+      .select("id, vehicle_type")
       .eq("host_id", userId)
       .eq("status", "active");
-      
+
     if (templatesError) {
       console.error("Error fetching templates:", templatesError);
     }
@@ -37,6 +37,12 @@ export async function POST(request: NextRequest) {
     if (templates && templates.length > 0) {
       const templateIds = templates.map((t) => t.id);
       
+      // Determine queue limit based on vehicle type
+      // For host view: we show matches based on their template's vehicle type
+      // 2-wheeler: 1 match, 4-wheeler: up to 3 matches
+      const vehicleType = templates[0].vehicle_type;
+      const queueLimit = vehicleType === '2_wheeler' ? 1 : 3;
+
       const { data: hMatches, error: hError } = await supabase
         .from("match_suggestions")
         .select(`
@@ -52,7 +58,8 @@ export async function POST(request: NextRequest) {
         `)
         .in("ride_template_id", templateIds)
         .eq("status", "pending") // Host sees pending requests
-        .order("overall_score", { ascending: false });
+        .order("overall_score", { ascending: false })
+        .limit(queueLimit);
 
       if (hError) console.error("Error fetching host matches:", hError);
       if (hMatches) hostMatches = hMatches;
@@ -62,7 +69,7 @@ export async function POST(request: NextRequest) {
     // (When host accepts, request status becomes 'matched', so we must include it)
     const { data: requests, error: requestsError } = await supabase
       .from("ride_requests")
-      .select("id")
+      .select("id, vehicle_preference")
       .eq("rider_id", userId)
       .in("status", ["active", "matched"]);
 
@@ -72,6 +79,15 @@ export async function POST(request: NextRequest) {
 
     if (requests && requests.length > 0) {
       const requestIds = requests.map((r) => r.id);
+      
+      // Determine queue limit based on vehicle preference
+      // 2-wheeler preference: 1 match, 4-wheeler preference: up to 3 matches
+      // If 'any', default to 3 matches
+      const vehiclePreference = requests[0].vehicle_preference;
+      let queueLimit = 3; // default
+      if (vehiclePreference === '2_wheeler') {
+        queueLimit = 1;
+      }
 
       const { data: rMatches, error: rError } = await supabase
         .from("match_suggestions")
@@ -88,7 +104,8 @@ export async function POST(request: NextRequest) {
         `)
         .in("ride_request_id", requestIds)
         .eq("status", "accepted") // Rider sees accepted matches
-        .order("overall_score", { ascending: false });
+        .order("overall_score", { ascending: false })
+        .limit(queueLimit);
 
       if (rError) console.error("Error fetching rider matches:", rError);
       if (rMatches) riderMatches = rMatches;
