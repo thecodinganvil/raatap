@@ -9,36 +9,42 @@ SECURITY DEFINER
 AS $$
 DECLARE
     res JSON;
+    calculated_seats INTEGER;
 BEGIN
     -- 1. Handling HOST creation
     -- Check if prefer_hosting is TRUE and necessary fields are present
-    IF NEW.prefer_hosting = true AND 
+    IF NEW.prefer_hosting = true AND
        NEW.from_lat IS NOT NULL AND NEW.from_lng IS NOT NULL AND
        NEW.to_lat IS NOT NULL AND NEW.to_lng IS NOT NULL AND
        NEW.days_of_commute IS NOT NULL AND array_length(NEW.days_of_commute, 1) > 0 THEN
-       
+
         -- Check if an active template already exists to avoid duplicates
         IF NOT EXISTS (SELECT 1 FROM ride_templates WHERE host_id = NEW.id AND status = 'active') THEN
-            -- Call creation function
-            -- Defaults: '4_wheeler', 3 seats, 5000m detour, 18:00 return
-            -- Note: We use '4_wheeler' as default vehicle as discussed
+            -- Auto-calculate seats based on user's vehicle type preference
+            IF NEW.vehicle_type = '2_wheeler' THEN
+                calculated_seats := 1;  -- Bike: 1 passenger seat
+            ELSE
+                calculated_seats := 3;  -- Car: 3 passenger seats (default)
+            END IF;
+            
+            -- Call creation function with user's actual vehicle type and calculated seats
             PERFORM create_ride_template_from_profile(
                 NEW.id,
-                '4_wheeler', 
-                3,           
-                5000,        
-                '18:00:00'   
+                COALESCE(NEW.vehicle_type, '4_wheeler'),  -- Use user's vehicle type or default
+                calculated_seats,                          -- Auto-calculated from vehicle type
+                5000,
+                '18:00:00'
             );
         END IF;
     END IF;
 
     -- 2. Handling RIDER creation
     -- Check if prefer_taking_ride is TRUE and necessary fields are present
-    IF NEW.prefer_taking_ride = true AND 
+    IF NEW.prefer_taking_ride = true AND
        NEW.from_lat IS NOT NULL AND NEW.from_lng IS NOT NULL AND
        NEW.to_lat IS NOT NULL AND NEW.to_lng IS NOT NULL AND
        NEW.days_of_commute IS NOT NULL AND array_length(NEW.days_of_commute, 1) > 0 THEN
-       
+
         -- Check if an active request already exists
         IF NOT EXISTS (SELECT 1 FROM ride_requests WHERE rider_id = NEW.id AND status = 'active') THEN
             -- Call creation function
@@ -46,9 +52,9 @@ BEGIN
             PERFORM create_ride_request_from_profile(
                 NEW.id,
                 '09:00:00',
-                30,        
-                'any',     
-                'both'     
+                30,
+                'any',
+                'both'
             );
         END IF;
     END IF;

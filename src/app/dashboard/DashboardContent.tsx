@@ -589,7 +589,10 @@ export default function DashboardContent() {
       setSubmitting(true);
       // Use custom college if "Other" is selected
       const finalInstitution = formData.institution === "Other" ? customCollege : formData.institution;
-      
+
+      // Calculate available seats based on vehicle type (2-wheeler: 1, 4-wheeler: 3)
+      const availableSeats = formData.vehicle_type === '2_wheeler' ? 1 : 3;
+
       const { error: insertError } = await supabase.from("profiles").upsert(
         {
           id: user?.id,
@@ -635,6 +638,32 @@ export default function DashboardContent() {
       }
 
       console.log("Profile saved successfully!");
+
+      // If user is hosting, create ride template automatically
+      if (formData.prefer_hosting) {
+        console.log("Creating ride template for host with", availableSeats, "seats");
+        
+        const rideTemplateResponse = await fetch("/api/rides/templates/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user?.id,
+            vehicleType: formData.vehicle_type,
+            availableSeats: availableSeats,
+            maxDetourMeters: 2000,
+            returnTime: formData.leave_college_time,
+          }),
+        });
+
+        const rideTemplateResult = await rideTemplateResponse.json();
+
+        if (rideTemplateResult.success || rideTemplateResult.ride_template_id) {
+          console.log("Ride template created successfully:", rideTemplateResult.ride_template_id);
+        } else {
+          console.error("Failed to create ride template:", rideTemplateResult.error);
+          // Don't block the flow, just log the error
+        }
+      }
       setIsVerified(true);
       setCurrentInstitutionalEmail(institutionalEmail);
       setOtpLoading(false);
@@ -657,7 +686,10 @@ export default function DashboardContent() {
     try {
       // Use custom college if "Other" is selected
       const finalInstitution = formData.institution === "Other" ? customCollege : formData.institution;
-      
+
+      // Calculate available seats based on vehicle type (2-wheeler: 1, 4-wheeler: 3)
+      const availableSeats = formData.vehicle_type === '2_wheeler' ? 1 : 3;
+
       const { error: insertError } = await supabase.from("profiles").upsert(
         {
           id: user?.id,
@@ -698,6 +730,33 @@ export default function DashboardContent() {
       }
 
       console.log("Profile saved successfully (without email)!");
+
+      // If user is hosting, create ride template automatically
+      if (formData.prefer_hosting) {
+        console.log("Creating ride template for host with", availableSeats, "seats");
+        
+        const rideTemplateResponse = await fetch("/api/rides/templates/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user?.id,
+            vehicleType: formData.vehicle_type,
+            availableSeats: availableSeats,
+            maxDetourMeters: 2000,
+            returnTime: formData.leave_college_time,
+          }),
+        });
+
+        const rideTemplateResult = await rideTemplateResponse.json();
+
+        if (rideTemplateResult.success || rideTemplateResult.ride_template_id) {
+          console.log("Ride template created successfully:", rideTemplateResult.ride_template_id);
+        } else {
+          console.error("Failed to create ride template:", rideTemplateResult.error);
+          // Don't block the flow, just log the error
+        }
+      }
+
       setIsVerified(false);
       setCurrentInstitutionalEmail(null);
       setSubmitting(false);
@@ -857,9 +916,9 @@ export default function DashboardContent() {
                                 </div>
                                 <div className="mt-3 flex items-center gap-2">
                                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div 
+                                        <div
                                             className="h-full bg-green-500 rounded-full transition-all duration-500"
-                                            style={{ width: `${(pod.ride_templates.seats_taken / pod.ride_templates.available_seats) * 100}%` }}
+                                            style={{ width: `${pod.ride_templates.available_seats > 0 ? (pod.ride_templates.seats_taken / pod.ride_templates.available_seats) * 100 : 0}%` }}
                                         ></div>
                                      </div>
                                      <span className="text-xs font-semibold text-gray-500">
@@ -904,8 +963,8 @@ export default function DashboardContent() {
                                       </div>
                                       <div className="bg-[#4d5ce6]/10 p-2 rounded-lg">
                                         <span className="block text-[#4d5ce6] font-bold uppercase tracking-wider text-[10px] mb-0.5">Dropoff</span>
-                                        <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.dropoff_location}>
-                                            {member.ride_requests?.dropoff_location || "N/A"}
+                                        <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.destination_location}>
+                                            {member.ride_requests?.destination_location || "N/A"}
                                         </span>
                                       </div>
                                    </div>

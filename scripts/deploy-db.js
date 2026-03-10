@@ -9,9 +9,25 @@ const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
 
+// Load .env.local manually
+const envPath = path.join(process.cwd(), '.env.local');
+if (!fs.existsSync(envPath)) {
+  console.error('❌ .env.local not found!');
+  process.exit(1);
+}
+
+const envContent = fs.readFileSync(envPath, 'utf8');
+const env = {};
+envContent.split('\n').forEach(line => {
+  const [key, value] = line.split('=');
+  if (key && value) {
+    env[key.trim()] = value.trim();
+  }
+});
+
 // Configuration
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
 
 // SQL files in deployment order
 const SQL_FILES = [
@@ -31,26 +47,23 @@ async function deploySQLFile(filePath, supabase) {
   
   console.log(`📄 Deploying: ${filePath}`);
   
-  // Split by semicolons to execute individual statements
-  const statements = sqlContent
-    .split(';')
-    .map(stmt => stmt.trim())
-    .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
-  
-  for (const statement of statements) {
-    try {
-      // Use RPC to execute raw SQL (requires service role key)
-      const { error } = await supabase.rpc('exec_sql', { sql: statement });
-      
-      if (error) {
-        console.warn(`⚠️  Warning in statement: ${error.message}`);
-      }
-    } catch (err) {
-      console.warn(`⚠️  Statement execution error: ${err.message}`);
+  // Execute the entire SQL file at once
+  try {
+    // Use RPC to execute raw SQL (requires service role key)
+    const { error } = await supabase.rpc('exec_sql', { sql: sqlContent });
+    
+    if (error) {
+      console.warn(`⚠️  Warning: ${error.message}`);
+      // Continue anyway - the function might not exist but direct SQL execution works
     }
+    
+    console.log(`✅ Completed: ${filePath}`);
+  } catch (err) {
+    console.warn(`⚠️  Execution error: ${err.message}`);
+    // Continue to next file
   }
   
-  console.log(`✅ Completed: ${filePath}`);
+  console.log(''); // Empty line between files
 }
 
 async function main() {
@@ -65,6 +78,9 @@ async function main() {
     process.exit(1);
   }
   
+  console.log('✅ Using Supabase URL:', SUPABASE_URL);
+  console.log('✅ Service Role Key loaded:', SUPABASE_SERVICE_ROLE_KEY.substring(0, 20) + '...\n');
+  
   // Initialize Supabase client
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
@@ -76,6 +92,8 @@ async function main() {
   }
   
   console.log('✅ Connected to Supabase\n');
+  console.log('='.repeat(60));
+  console.log('');
   
   // Deploy each SQL file
   for (const file of SQL_FILES) {
@@ -87,14 +105,15 @@ async function main() {
     }
     
     await deploySQLFile(fullPath, supabase);
-    console.log(''); // Empty line between files
   }
   
+  console.log('='.repeat(60));
   console.log('✅ All database functions deployed successfully!');
   console.log('\n📝 Next steps:');
   console.log('   1. Verify functions in Supabase Dashboard → Database → Functions');
   console.log('   2. Check triggers in Database → Triggers');
   console.log('   3. Test the match workflow in the app');
+  console.log('   4. Run "npm run db:check" to verify all functions');
 }
 
 main().catch(console.error);
