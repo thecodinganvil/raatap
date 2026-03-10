@@ -1,3 +1,15 @@
+-- Helper function to decrement seats_taken (used when host skips a match)
+CREATE OR REPLACE FUNCTION decrement_seats_taken(ride_template_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE ride_templates
+    SET seats_taken = GREATEST(0, seats_taken - 1)
+    WHERE id = ride_template_id;
+END;
+$$;
+
 -- Function to validate and lock seats (prevent overbooking)
 CREATE OR REPLACE FUNCTION validate_and_lock_seat(
     template_id UUID,

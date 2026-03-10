@@ -120,7 +120,7 @@ export default function DashboardView({
                               <div
                                 className="h-full bg-green-500 rounded-full transition-all duration-500"
                                 style={{
-                                  width: `${(pod.ride_templates.seats_taken / pod.ride_templates.available_seats) * 100}%`,
+                                  width: `${pod.ride_templates.available_seats > 0 ? (pod.ride_templates.seats_taken / pod.ride_templates.available_seats) * 100 : 0}%`,
                                 }}
                               ></div>
                             </div>
@@ -212,11 +212,11 @@ export default function DashboardView({
                                     <span
                                       className="text-gray-700 font-medium truncate block"
                                       title={
-                                        member.ride_requests?.dropoff_location
+                                        member.ride_requests?.destination_location
                                       }
                                     >
                                       {member.ride_requests
-                                        ?.dropoff_location || "N/A"}
+                                        ?.destination_location || "N/A"}
                                     </span>
                                   </div>
                                 </div>

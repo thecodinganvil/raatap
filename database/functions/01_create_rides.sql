@@ -3,7 +3,7 @@
 CREATE OR REPLACE FUNCTION create_ride_template_from_profile(
     user_id UUID,
     p_vehicle_type TEXT,
-    p_available_seats INTEGER DEFAULT 1,
+    p_available_seats INTEGER DEFAULT NULL,  -- NULL = auto-calculate from vehicle_type
     p_max_detour_meters INTEGER DEFAULT 2000,
     p_return_time TIME DEFAULT NULL
 )
@@ -15,6 +15,7 @@ DECLARE
     user_profile RECORD;
     new_ride_template UUID;
     role_check BOOLEAN;
+    calculated_seats INTEGER;
 BEGIN
     -- Validate user role (must be host)
     SELECT prefer_hosting INTO role_check
@@ -53,6 +54,19 @@ BEGIN
         RETURN json_build_object('success', false, 'error', 'Days of commute are required');
     END IF;
 
+    -- Auto-calculate available seats based on vehicle type if not provided
+    IF p_available_seats IS NULL OR p_available_seats < 1 THEN
+        IF p_vehicle_type = '2_wheeler' THEN
+            calculated_seats := 1;  -- Bike: 1 passenger seat
+        ELSIF p_vehicle_type = '4_wheeler' THEN
+            calculated_seats := 3;  -- Car: 3 passenger seats
+        ELSE
+            calculated_seats := 1;  -- Default fallback
+        END IF;
+    ELSE
+        calculated_seats := p_available_seats;
+    END IF;
+
     -- Create ride_template
     INSERT INTO ride_templates (
         host_id,
@@ -85,7 +99,7 @@ BEGIN
         p_return_time,
         user_profile.days_of_commute,
         p_vehicle_type,
-        p_available_seats,
+        calculated_seats,
         p_max_detour_meters,
         COALESCE(user_profile.comfortable_with, 'both')
     ) RETURNING id INTO new_ride_template;
@@ -99,7 +113,11 @@ BEGIN
         'message', 'Ride template created successfully'
     );
 
-    -- (No exception handling for debug purposes)
+EXCEPTION WHEN OTHERS THEN
+    RETURN json_build_object(
+        'success', false,
+        'error', SQLERRM
+    );
 END;
 $$;
 

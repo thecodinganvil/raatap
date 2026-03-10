@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 
 export async function POST(request: NextRequest) {
   try {
     const { matchId, riderId } = await request.json();
-    console.log("API [matches/confirm] Request:", { matchId, riderId });
+    console.log("📥 [Frontend] /api/matches/confirm:", { matchId, riderId });
 
     if (!matchId || !riderId) {
       return NextResponse.json(
@@ -18,27 +14,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call the confirm match function with standardized p_* prefix parameters
-    const { data, error } = await supabase.rpc("confirm_match_suggestion", {
-      p_match_id: matchId,
-      p_rider_id: riderId,
+    // Call backend API instead of Supabase directly
+    const response = await fetch(`${BACKEND_URL}/api/matches/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matchId, riderId }),
     });
 
-    if (error) {
-      console.error("API [matches/confirm] Error:", error);
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      console.log("✅ [Frontend] Match confirmed successfully");
+      return NextResponse.json(data);
     }
 
-    console.log("API [matches/confirm] Response:", data);
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("❌ [Frontend] Backend error:", data.error);
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: data.error || 'Failed to confirm match' },
+      { status: response.status }
+    );
+  } catch (error) {
+    console.error("❌ [Frontend] Backend unavailable:", error);
+    return NextResponse.json(
+      { error: 'Backend service unavailable. Make sure backend is running.' },
+      { status: 503 }
     );
   }
 }
