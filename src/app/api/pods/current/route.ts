@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = 'https://raatap-backend.onrender.com';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://raatap-backend.onrender.com';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,18 +22,23 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ userId }),
     });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      console.log(`✅ [Frontend] Found ${data.host_pods?.length || 0} host pods, ${data.rider_rides?.length || 0} rider rides`);
-      return NextResponse.json(data);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ [Frontend] Backend error:", errorData);
+      return NextResponse.json(
+        { error: errorData.error || 'Failed to fetch pods' },
+        { status: response.status }
+      );
     }
 
-    console.error("❌ [Frontend] Backend error:", data.error);
-    return NextResponse.json(
-      { error: data.error || 'Failed to fetch pods' },
-      { status: response.status }
-    );
+    const data = await response.json();
+    
+    // Ensure data structure is correct
+    const hostPods = Array.isArray(data.host_pods) ? data.host_pods : [];
+    const riderRides = Array.isArray(data.rider_rides) ? data.rider_rides : [];
+    
+    console.log(`✅ [Frontend] Found ${hostPods.length} host pods, ${riderRides.length} rider rides`);
+    return NextResponse.json({ ...data, host_pods: hostPods, rider_rides: riderRides });
   } catch (error) {
     console.error("❌ [Frontend] Backend unavailable:", error);
     return NextResponse.json(
