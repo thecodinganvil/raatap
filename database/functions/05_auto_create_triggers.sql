@@ -56,6 +56,23 @@ BEGIN
                 'any',
                 'both'
             );
+            
+            -- Trigger match generation for existing ride_templates (hosts)
+            PERFORM generate_all_matches();
+        END IF;
+    END IF;
+
+    -- 3. Handling HOST match generation
+    -- If host just created a template, generate matches for existing ride_requests
+    IF NEW.prefer_hosting = true AND
+       NEW.from_lat IS NOT NULL AND NEW.from_lng IS NOT NULL AND
+       NEW.to_lat IS NOT NULL AND NEW.to_lng IS NOT NULL AND
+       NEW.days_of_commute IS NOT NULL AND array_length(NEW.days_of_commute, 1) > 0 THEN
+
+        -- Check if an active template already exists
+        IF NOT EXISTS (SELECT 1 FROM ride_templates WHERE host_id = NEW.id AND status = 'active') THEN
+            -- Trigger match generation for existing ride_requests (riders)
+            PERFORM generate_all_matches();
         END IF;
     END IF;
 

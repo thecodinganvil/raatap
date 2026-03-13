@@ -6,7 +6,44 @@
 -- =====================================================
 
 -- =====================================================
--- STEP 0: Drop Old Functions (to avoid parameter conflicts)
+-- STEP 0: Setup Unique Constraint for match_suggestions
+-- =====================================================
+-- This is required for ON CONFLICT to work in matching functions
+
+-- Clean up duplicates first
+DELETE FROM match_suggestions a USING match_suggestions b
+WHERE a.id < b.id
+AND a.ride_template_id = b.ride_template_id
+AND a.ride_request_id = b.ride_request_id;
+
+-- Add unique constraint if not exists
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'match_suggestions_ride_pair_key'
+    ) THEN
+        ALTER TABLE match_suggestions
+        ADD CONSTRAINT match_suggestions_ride_pair_key 
+        UNIQUE (ride_template_id, ride_request_id);
+    END IF;
+END $$;
+
+-- Add updated_at column if not exists
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'match_suggestions' 
+        AND column_name = 'updated_at'
+    ) THEN
+        ALTER TABLE match_suggestions
+        ADD COLUMN updated_at timestamp with time zone DEFAULT now();
+    END IF;
+END $$;
+
+-- =====================================================
+-- STEP 1: Drop Old Functions (to avoid parameter conflicts)
 -- =====================================================
 
 DROP FUNCTION IF EXISTS expire_pending_matches_if_full(uuid);
@@ -349,7 +386,6 @@ DECLARE
     request RECORD;
     match_result JSON;
     suggestions_created INTEGER := 0;
-    existing_match UUID;
 BEGIN
     -- Get the template
     SELECT * INTO template
@@ -366,41 +402,38 @@ BEGIN
         WHERE status = 'active'
         AND rider_id != template.host_id
     LOOP
-        -- Check if match already exists
-        SELECT id INTO existing_match
-        FROM match_suggestions
-        WHERE ride_template_id = template_id
-        AND ride_request_id = request.id
-        AND status IN ('pending', 'shown', 'accepted');
+        -- Calculate match
+        match_result := calculate_route_match_score(template_id, request.id);
 
-        IF existing_match IS NULL THEN
-            -- Calculate match
-            match_result := calculate_route_match_score(template_id, request.id);
+        IF (match_result->>'compatible')::BOOLEAN = true THEN
+            -- Create match suggestion safely (idempotent)
+            INSERT INTO match_suggestions (
+                ride_template_id,
+                ride_request_id,
+                route_match_score,
+                schedule_match_score,
+                overall_score,
+                detour_distance_meters,
+                pickup_distance_meters,
+                status
+            ) VALUES (
+                template_id,
+                request.id,
+                (match_result->>'route_match_score')::NUMERIC,
+                (match_result->>'schedule_match_score')::NUMERIC,
+                (match_result->>'overall_score')::NUMERIC,
+                (match_result->>'pickup_distance_meters')::INTEGER,
+                (match_result->>'pickup_distance_meters')::INTEGER,
+                'pending'
+            )
+            ON CONFLICT (ride_template_id, ride_request_id)
+            DO UPDATE SET
+                route_match_score = (match_result->>'route_match_score')::NUMERIC,
+                schedule_match_score = (match_result->>'schedule_match_score')::NUMERIC,
+                overall_score = (match_result->>'overall_score')::NUMERIC,
+                updated_at = now();
 
-            IF (match_result->>'compatible')::BOOLEAN = true THEN
-                -- Create match suggestion
-                INSERT INTO match_suggestions (
-                    ride_template_id,
-                    ride_request_id,
-                    route_match_score,
-                    schedule_match_score,
-                    overall_score,
-                    detour_distance_meters,
-                    pickup_distance_meters,
-                    status
-                ) VALUES (
-                    template_id,
-                    request.id,
-                    (match_result->>'route_match_score')::NUMERIC,
-                    (match_result->>'schedule_match_score')::NUMERIC,
-                    (match_result->>'overall_score')::NUMERIC,
-                    (match_result->>'pickup_distance_meters')::INTEGER,
-                    (match_result->>'pickup_distance_meters')::INTEGER,
-                    'pending'
-                );
-
-                suggestions_created := suggestions_created + 1;
-            END IF;
+            suggestions_created := suggestions_created + 1;
         END IF;
     END LOOP;
 
@@ -420,7 +453,6 @@ DECLARE
     template RECORD;
     match_result JSON;
     suggestions_created INTEGER := 0;
-    existing_match UUID;
 BEGIN
     -- Get the request
     SELECT * INTO request
@@ -437,41 +469,38 @@ BEGIN
         WHERE status = 'active'
         AND host_id != request.rider_id
     LOOP
-        -- Check if match already exists
-        SELECT id INTO existing_match
-        FROM match_suggestions
-        WHERE ride_template_id = template.id
-        AND ride_request_id = request_id
-        AND status IN ('pending', 'shown', 'accepted');
+        -- Calculate match
+        match_result := calculate_route_match_score(template.id, request_id);
 
-        IF existing_match IS NULL THEN
-            -- Calculate match
-            match_result := calculate_route_match_score(template.id, request_id);
+        IF (match_result->>'compatible')::BOOLEAN = true THEN
+            -- Create match suggestion safely (idempotent)
+            INSERT INTO match_suggestions (
+                ride_template_id,
+                ride_request_id,
+                route_match_score,
+                schedule_match_score,
+                overall_score,
+                detour_distance_meters,
+                pickup_distance_meters,
+                status
+            ) VALUES (
+                template.id,
+                request_id,
+                (match_result->>'route_match_score')::NUMERIC,
+                (match_result->>'schedule_match_score')::NUMERIC,
+                (match_result->>'overall_score')::NUMERIC,
+                (match_result->>'pickup_distance_meters')::INTEGER,
+                (match_result->>'pickup_distance_meters')::INTEGER,
+                'pending'
+            )
+            ON CONFLICT (ride_template_id, ride_request_id)
+            DO UPDATE SET
+                route_match_score = (match_result->>'route_match_score')::NUMERIC,
+                schedule_match_score = (match_result->>'schedule_match_score')::NUMERIC,
+                overall_score = (match_result->>'overall_score')::NUMERIC,
+                updated_at = now();
 
-            IF (match_result->>'compatible')::BOOLEAN = true THEN
-                -- Create match suggestion
-                INSERT INTO match_suggestions (
-                    ride_template_id,
-                    ride_request_id,
-                    route_match_score,
-                    schedule_match_score,
-                    overall_score,
-                    detour_distance_meters,
-                    pickup_distance_meters,
-                    status
-                ) VALUES (
-                    template.id,
-                    request_id,
-                    (match_result->>'route_match_score')::NUMERIC,
-                    (match_result->>'schedule_match_score')::NUMERIC,
-                    (match_result->>'overall_score')::NUMERIC,
-                    (match_result->>'pickup_distance_meters')::INTEGER,
-                    (match_result->>'pickup_distance_meters')::INTEGER,
-                    'pending'
-                );
-
-                suggestions_created := suggestions_created + 1;
-            END IF;
+            suggestions_created := suggestions_created + 1;
         END IF;
     END LOOP;
 
@@ -883,6 +912,21 @@ BEGIN
                 'any',
                 'both'
             );
+            
+            -- Trigger match generation for existing ride_templates (hosts)
+            PERFORM generate_all_matches();
+        END IF;
+    END IF;
+
+    -- 3. Handling HOST match generation
+    IF NEW.prefer_hosting = true AND
+       NEW.from_lat IS NOT NULL AND NEW.from_lng IS NOT NULL AND
+       NEW.to_lat IS NOT NULL AND NEW.to_lng IS NOT NULL AND
+       NEW.days_of_commute IS NOT NULL AND array_length(NEW.days_of_commute, 1) > 0 THEN
+
+        IF NOT EXISTS (SELECT 1 FROM ride_templates WHERE host_id = NEW.id AND status = 'active') THEN
+            -- Trigger match generation for existing ride_requests (riders)
+            PERFORM generate_all_matches();
         END IF;
     END IF;
 
