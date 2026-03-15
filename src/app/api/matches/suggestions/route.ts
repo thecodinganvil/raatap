@@ -23,11 +23,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get match suggestions where user is either host or rider
+    // First get all pending matches, then filter by user
     const { data: suggestions, error } = await supabase
       .from("match_suggestions")
       .select(`
         *,
-        ride_template:ride_templates!inner(
+        ride_template:ride_templates(
           id,
           host_id,
           from_location,
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
           available_seats,
           status
         ),
-        ride_request:ride_requests!inner(
+        ride_request:ride_requests(
           id,
           rider_id,
           pickup_location,
@@ -45,8 +46,7 @@ export async function POST(request: NextRequest) {
           status
         )
       `)
-      .or(`ride_template.host_id.eq.${userId},ride_request.rider_id.eq.${userId}`)
-      .in("status", ["pending", "shown", "accepted"])
+      .eq("status", "pending")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -64,11 +64,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("📊 [API] Query result:", suggestions);
-    console.log("📊 [API] Number of suggestions found:", suggestions?.length || 0);
-    console.log("✅ [API] Returning suggestions:", suggestions?.length || 0);
+    // Filter matches where user is either host or rider
+    const userSuggestions = (suggestions || []).filter(
+      (suggestion: any) => 
+        suggestion.ride_template?.host_id === userId || 
+        suggestion.ride_request?.rider_id === userId
+    );
+
+    console.log("📊 [API] Total suggestions:", suggestions?.length || 0);
+    console.log("📊 [API] Filtered user suggestions:", userSuggestions.length);
     
-    return NextResponse.json(suggestions || []);
+    return NextResponse.json(userSuggestions);
   } catch (error) {
     console.error("❌ [API] Unexpected error:", error);
     return NextResponse.json(
