@@ -121,7 +121,7 @@ export default function DashboardContent() {
     setTimeout(() => setNotification(null), 5000);
   };
 
-  const handleConfirmMatch = async (matchId: string, riderName: string) => {
+  const handleAcceptMatch = async (matchId: string, riderName: string) => {
     console.log("🎯 [Frontend] Accepting match:", {
       matchId,
       hostId: user?.id,
