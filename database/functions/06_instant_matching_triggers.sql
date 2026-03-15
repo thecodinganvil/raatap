@@ -90,7 +90,7 @@ BEGIN
         NEW.id,
         jsonb_build_object(
             'pickup_location', NEW.pickup_location,
-            'drop_location', NEW.drop_location,
+            'destination_location', NEW.destination_location,
             'days_needed', NEW.days_needed
         )
     );

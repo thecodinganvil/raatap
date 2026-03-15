@@ -729,7 +729,7 @@ export default function DashboardContent() {
       // If user is hosting, create ride template automatically
       if (formData.prefer_hosting) {
         console.log("Creating ride template for host with", availableSeats, "seats");
-        
+
         const rideTemplateResponse = await fetch("/api/rides/templates/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -751,6 +751,33 @@ export default function DashboardContent() {
           // Don't block the flow, just log the error
         }
       }
+
+      // If user is taking ride, create ride request automatically
+      if (formData.prefer_taking_ride) {
+        console.log("Creating ride request for rider");
+
+        const rideRequestResponse = await fetch("/api/rides/requests/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user?.id,
+            preferredArrivalTime: formData.leave_college_time,
+            timeFlexibilityMins: 30,
+            vehiclePreference: 'any',
+            genderPreference: formData.comfortable_with || 'both',
+          }),
+        });
+
+        const rideRequestResult = await rideRequestResponse.json();
+
+        if (rideRequestResult.success || rideRequestResult.ride_request_id) {
+          console.log("Ride request created successfully:", rideRequestResult.ride_request_id);
+        } else {
+          console.error("Failed to create ride request:", rideRequestResult.error);
+          // Don't block the flow, just log the error
+        }
+      }
+
       setIsVerified(true);
       setCurrentInstitutionalEmail(institutionalEmail);
       setOtpLoading(false);
@@ -821,7 +848,7 @@ export default function DashboardContent() {
       // If user is hosting, create ride template automatically
       if (formData.prefer_hosting) {
         console.log("Creating ride template for host with", availableSeats, "seats");
-        
+
         const rideTemplateResponse = await fetch("/api/rides/templates/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -840,6 +867,32 @@ export default function DashboardContent() {
           console.log("Ride template created successfully:", rideTemplateResult.ride_template_id);
         } else {
           console.error("Failed to create ride template:", rideTemplateResult.error);
+          // Don't block the flow, just log the error
+        }
+      }
+
+      // If user is taking ride, create ride request automatically
+      if (formData.prefer_taking_ride) {
+        console.log("Creating ride request for rider");
+
+        const rideRequestResponse = await fetch("/api/rides/requests/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user?.id,
+            preferredArrivalTime: formData.leave_college_time,
+            timeFlexibilityMins: 30,
+            vehiclePreference: 'any',
+            genderPreference: formData.comfortable_with || 'both',
+          }),
+        });
+
+        const rideRequestResult = await rideRequestResponse.json();
+
+        if (rideRequestResult.success || rideRequestResult.ride_request_id) {
+          console.log("Ride request created successfully:", rideRequestResult.ride_request_id);
+        } else {
+          console.error("Failed to create ride request:", rideRequestResult.error);
           // Don't block the flow, just log the error
         }
       }
