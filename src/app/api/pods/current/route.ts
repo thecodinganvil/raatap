@@ -66,6 +66,12 @@ export async function POST(request: NextRequest) {
             days_available,
             vehicle_type,
             host_id
+          ),
+          profiles:profiles(
+            id,
+            full_name,
+            gender,
+            phone_number
           )
         )
       `)

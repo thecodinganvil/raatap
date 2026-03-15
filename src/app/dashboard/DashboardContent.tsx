@@ -122,13 +122,13 @@ export default function DashboardContent() {
   };
 
   const handleAcceptMatch = async (matchId: string, riderName: string) => {
-    console.log("🎯 [Frontend] Accepting match:", { 
-      matchId, 
-      hostId: user?.id, 
+    console.log("🎯 [Frontend] Accepting match:", {
+      matchId,
+      hostId: user?.id,
       riderName,
-      userExists: !!user?.id 
+      userExists: !!user?.id
     });
-    
+
     try {
       const response = await fetch("/api/matches/accept", {
         method: "POST",
@@ -157,6 +157,32 @@ export default function DashboardContent() {
     } catch (error) {
       console.error("❌ [Frontend] Error accepting match:", error);
       showNotification('error', 'Error accepting match. Please try again.');
+    }
+  };
+
+  const handleConfirmRiderRide = async (rideRequestId: string) => {
+    try {
+      const response = await fetch("/api/pods/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rideRequestId,
+          riderId: user?.id
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        showNotification('success', 'Ride confirmed! You are now part of the pod.');
+        // Refresh pods to show the confirmed ride
+        if (user?.id) fetchConfirmedPods(user.id);
+      } else {
+        showNotification('error', data.error || 'Failed to confirm ride');
+      }
+    } catch (error) {
+      console.error("Error confirming ride:", error);
+      showNotification('error', 'Error confirming ride. Please try again.');
     }
   };
 
@@ -227,7 +253,7 @@ export default function DashboardContent() {
       });
 
       const data = await response.json();
-      
+
       if (response.ok && data.success) {
         showNotification('info', 'Rejected this match');
         setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
@@ -238,6 +264,30 @@ export default function DashboardContent() {
     } catch (error) {
       console.error("Error rejecting match:", error);
       showNotification('error', 'Error rejecting match. Please try again.');
+    }
+  };
+
+  const handleRejectRiderRide = async (rideRequestId: string) => {
+    try {
+      // Delete the pod member record to reject the ride
+      const { error } = await supabase
+        .from("pod_members")
+        .delete()
+        .eq("ride_request_id", rideRequestId)
+        .eq("rider_id", user?.id)
+        .eq("status", "pending_rider");
+
+      if (error) {
+        console.error("Failed to reject ride:", error);
+        showNotification('error', 'Failed to reject ride');
+      } else {
+        showNotification('info', 'Rejected this ride');
+        // Refresh pods to remove the pending ride
+        if (user?.id) fetchConfirmedPods(user.id);
+      }
+    } catch (error) {
+      console.error("Error rejecting ride:", error);
+      showNotification('error', 'Error rejecting ride. Please try again.');
     }
   };
 
@@ -275,9 +325,11 @@ export default function DashboardContent() {
          
          // Allow fetching suggestions if:
          // 1. User is a HOST (host_pods > 0) OR
-         // 2. User has NO ACTIVE confirmed rides (rider_rides with status 'active')
-         const hasActiveRide = data?.rider_rides?.some((ride: any) => ride.status === 'active');
-         
+         // 2. User has NO ACTIVE confirmed rides (rider_rides with status 'active', 'pending_rider', 'pending_host')
+         const hasActiveRide = data?.rider_rides?.some((ride: any) => 
+           ride.status === 'active' || ride.status === 'pending_rider' || ride.status === 'pending_host'
+         );
+
          console.log("🔍 [Dashboard] Checking if should fetch suggestions...");
          console.log("📊 [Dashboard] rider_rides length:", data?.rider_rides?.length || 0);
          console.log("📊 [Dashboard] Has active ride:", hasActiveRide);
@@ -915,8 +967,8 @@ export default function DashboardContent() {
              </div>
           )} 
 
-          {/* PENDING PODS - Host accepted, waiting for rider */}
-          {(confirmedPods && confirmedPods.host_pods?.some((pod: any) => 
+          {/* PENDING PODS - Host accepted, waiting for rider (HOST VIEW) */}
+          {(confirmedPods && confirmedPods.host_pods?.some((pod: any) =>
             pod.pod_members?.some((m: any) => m.status === 'pending_rider')
           )) && (
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50">
@@ -946,6 +998,62 @@ export default function DashboardContent() {
                              </div>
                            </div>
                          ))}
+                     </div>
+                   ))}
+               </div>
+            </div>
+          )}
+
+          {/* PENDING PODS - Rider needs to confirm (RIDER VIEW) */}
+          {(confirmedPods && confirmedPods.rider_rides?.some((ride: any) => ride.status === 'pending_rider')) && (
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50">
+               <div className="bg-gradient-to-r from-[#f59e0b] to-[#d97706] p-6 text-white text-center">
+                 <h2 className="text-2xl font-semibold mb-1">Host accepted your request!</h2>
+                 <p className="opacity-90">Confirm your ride to join the pod</p>
+               </div>
+
+               <div className="p-8">
+                 {confirmedPods.rider_rides
+                   .filter((ride: any) => ride.status === 'pending_rider')
+                   .map((ride: any) => (
+                     <div key={ride.id} className="space-y-4">
+                       <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                         <div className="w-12 h-12 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 text-lg font-bold">
+                           {ride.pod?.profiles?.full_name?.charAt(0) || "H"}
+                         </div>
+                         <div>
+                           <p className="font-semibold text-gray-800">
+                             {ride.pod?.profiles?.full_name || "Host"}
+                           </p>
+                           <p className="text-sm text-amber-700">Waiting for your confirmation</p>
+                         </div>
+                       </div>
+
+                       <div className="grid grid-cols-2 gap-3">
+                         <div className="p-3 bg-[#6675FF]/10 rounded-xl">
+                           <p className="text-xs text-[#6675FF] font-semibold uppercase mb-1">Pickup</p>
+                           <p className="text-gray-700 text-sm font-medium">{ride.pickup_location}</p>
+                         </div>
+                         <div className="p-3 bg-[#4d5ce6]/10 rounded-xl">
+                           <p className="text-xs text-[#4d5ce6] font-semibold uppercase mb-1">Time</p>
+                           <p className="text-gray-700 text-sm font-medium">{ride.pod?.ride_template?.departure_time}</p>
+                         </div>
+                       </div>
+
+                       <div className="flex gap-3">
+                         <button
+                           onClick={() => handleConfirmRiderRide(ride.ride_request_id)}
+                           className="flex-1 py-3 bg-gradient-to-r from-[#10b981] to-[#059669] text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-green-500/30 transition-all"
+                         >
+                           Confirm Ride
+                         </button>
+                         <button
+                           onClick={() => handleRejectRiderRide(ride.ride_request_id)}
+                           className="flex-1 py-3 bg-gradient-to-r from-gray-400 to-gray-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-gray-500/30 transition-all"
+                         >
+                           Reject
+                         </button>
+                       </div>
                      </div>
                    ))}
                </div>
