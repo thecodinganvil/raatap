@@ -2284,8 +2284,23 @@ function MatchQueue({
   // Determine if user is host or rider for this match
   const isHostView = currentMatch?.ride_template?.host_id === user?.id;
 
+  // Calculate cost contribution based on vehicle type and distance
+  const calculateCostContribution = () => {
+    const detourKm = (currentMatch?.detour_distance_meters || 0) / 1000;
+    const vehicleType = currentMatch?.ride_template?.vehicle_type || currentMatch?.ride_request?.vehicle_preference;
+    
+    // Rate: ₹6/km for 4-wheeler, ₹4/km for 2-wheeler
+    const ratePerKm = vehicleType === '2_wheeler' ? 4 : 6;
+    const calculatedCost = Math.round(detourKm * ratePerKm);
+    
+    // Return calculated cost or fallback to existing value
+    return currentMatch?.ride_request?.fuel_cost_contribution || calculatedCost || 50;
+  };
+
+  const costContribution = calculateCostContribution();
+
   // Determine queue info based on vehicle type
-  const vehicleType = currentMatch?.ride_templates?.vehicle_type || currentMatch?.ride_requests?.vehicle_preference || 'any';
+  const vehicleType = currentMatch?.ride_template?.vehicle_type || currentMatch?.ride_request?.vehicle_preference || 'any';
   const queueInfo = vehicleType === '2_wheeler'
     ? { current: currentIndex + 1, total: 1, label: 'Bike Pool - Single Match' }
     : { current: currentIndex + 1, total: Math.min(matchSuggestions.length, 3), label: 'Car Pool - Up to 3 Matches' };
@@ -2385,14 +2400,14 @@ function MatchQueue({
           <>
             <div className="flex items-center gap-4 mb-6">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xl font-bold">
-                {currentMatch.ride_requests?.profiles?.full_name?.charAt(0) || "R"}
+                {currentMatch.ride_request?.profiles?.full_name?.charAt(0) || "R"}
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">
-                  {currentMatch.ride_requests?.profiles?.full_name || "Rider"}
+                  {currentMatch.ride_request?.profiles?.full_name || "Rider"}
                 </h3>
                 <p className="text-gray-500 text-sm">
-                  {currentMatch.ride_requests?.profiles?.gender || "N/A"} • {currentMatch.ride_requests?.profiles?.institution || "N/A"}
+                  {currentMatch.ride_request?.profiles?.gender || "N/A"} • {currentMatch.ride_request?.profiles?.institution || "N/A"}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                   <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
@@ -2412,10 +2427,10 @@ function MatchQueue({
                 </div>
                 <div className="flex-1">
                   <p className="text-xs text-gray-500 uppercase font-semibold">Pickup Location</p>
-                  <p className="text-gray-700">{currentMatch.ride_requests?.pickup_location}</p>
-                  {currentMatch.ride_requests?.pickup_landmark && (
+                  <p className="text-gray-700">{currentMatch.ride_request?.pickup_location}</p>
+                  {currentMatch.ride_request?.pickup_landmark && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Landmark: {currentMatch.ride_requests?.pickup_landmark}
+                      Landmark: {currentMatch.ride_request?.pickup_landmark}
                     </p>
                   )}
                 </div>
@@ -2430,7 +2445,7 @@ function MatchQueue({
                 </div>
                 <div className="flex-1">
                   <p className="text-xs text-gray-500 uppercase font-semibold">Drop-off Location</p>
-                  <p className="text-gray-700">{currentMatch.ride_requests?.destination_location || currentMatch.ride_requests?.to_location}</p>
+                  <p className="text-gray-700">{currentMatch.ride_request?.destination_location}</p>
                 </div>
               </div>
 
@@ -2458,7 +2473,7 @@ function MatchQueue({
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Cost Contribution</p>
-                  <p className="text-gray-700">₹{currentMatch.ride_requests?.fuel_cost_contribution || "50"} (negotiable)</p>
+                  <p className="text-gray-700">₹{costContribution} <span className="text-xs text-gray-400">({vehicleType === '2_wheeler' ? '₹4/km' : '₹6/km'} × {(currentMatch?.detour_distance_meters ? (currentMatch.detour_distance_meters / 1000).toFixed(1) : '0')} km)</span></p>
                 </div>
               </div>
             </div>
@@ -2486,18 +2501,18 @@ function MatchQueue({
           <>
             <div className="flex items-center gap-4 mb-6">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xl font-bold">
-                {currentMatch.ride_templates?.profiles?.full_name?.charAt(0) || "H"}
+                {currentMatch.ride_template?.profiles?.full_name?.charAt(0) || "H"}
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">
-                  {currentMatch.ride_templates?.profiles?.full_name || "Host"}
+                  {currentMatch.ride_template?.profiles?.full_name || "Host"}
                 </h3>
                 <p className="text-gray-500 text-sm">
-                  {currentMatch.ride_templates?.vehicle_type === '2_wheeler' ? '🏍️ Bike' : '🚗 Car'} • {currentMatch.ride_templates?.profiles?.gender || "N/A"} • {currentMatch.ride_templates?.profiles?.institution || "N/A"}
+                  {currentMatch.ride_template?.vehicle_type === '2_wheeler' ? '🏍️ Bike' : '🚗 Car'} • {currentMatch.ride_template?.profiles?.gender || "N/A"} • {currentMatch.ride_template?.profiles?.institution || "N/A"}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                   <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                    Host Accepted! Please Confirm
+                    {Math.round(currentMatch.overall_score * 100)}% Match
                   </span>
                 </div>
               </div>
@@ -2512,8 +2527,8 @@ function MatchQueue({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold">Route</p>
-                  <p className="text-gray-700">{currentMatch.ride_templates?.from_location} → {currentMatch.ride_templates?.to_location}</p>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Host Route</p>
+                  <p className="text-gray-700">{currentMatch.ride_template?.from_location} → {currentMatch.ride_template?.to_location}</p>
                 </div>
               </div>
 
@@ -2526,7 +2541,7 @@ function MatchQueue({
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Departure Time</p>
                   <p className="text-gray-700">
-                    {currentMatch.ride_templates?.departure_time}
+                    {currentMatch.ride_template?.departure_time}
                   </p>
                 </div>
               </div>
@@ -2540,7 +2555,7 @@ function MatchQueue({
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Vehicle Type</p>
                   <p className="text-gray-700">
-                    {currentMatch.ride_templates?.vehicle_type === '2_wheeler' ? '2 Wheeler (Bike)' : '4 Wheeler (Car)'}
+                    {currentMatch.ride_template?.vehicle_type === '2_wheeler' ? '2 Wheeler (Bike)' : '4 Wheeler (Car)'}
                   </p>
                 </div>
               </div>
@@ -2553,7 +2568,7 @@ function MatchQueue({
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Your Cost Contribution</p>
-                  <p className="text-gray-700">₹{currentMatch.ride_requests?.fuel_cost_contribution || currentMatch.ride_templates?.fuel_cost || "50"} (negotiable)</p>
+                  <p className="text-gray-700">₹{costContribution} <span className="text-xs text-gray-400">({vehicleType === '2_wheeler' ? '₹4/km' : '₹6/km'} × {(currentMatch?.detour_distance_meters ? (currentMatch.detour_distance_meters / 1000).toFixed(1) : '0')} km)</span></p>
                 </div>
               </div>
             </div>
