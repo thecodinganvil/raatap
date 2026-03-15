@@ -2281,10 +2281,12 @@ function MatchQueue({
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentMatch = matchSuggestions[currentIndex];
 
+  // Determine if user is host or rider for this match
+  const isHostView = currentMatch?.ride_template?.host_id === user?.id;
+
   // Determine queue info based on vehicle type
   const vehicleType = currentMatch?.ride_templates?.vehicle_type || currentMatch?.ride_requests?.vehicle_preference || 'any';
-  const isHostView = currentMatch?.view_type === 'host';
-  const queueInfo = vehicleType === '2_wheeler' 
+  const queueInfo = vehicleType === '2_wheeler'
     ? { current: currentIndex + 1, total: 1, label: 'Bike Pool - Single Match' }
     : { current: currentIndex + 1, total: Math.min(matchSuggestions.length, 3), label: 'Car Pool - Up to 3 Matches' };
 
@@ -2337,10 +2339,10 @@ function MatchQueue({
           
           <div className="flex-1">
             <h2 className="text-xl font-semibold mb-1">
-              {currentMatch.status === 'accepted' ? 'Host Accepted! Please Confirm' : 'Top Match Found!'}
+              {isHostView ? 'Review Rider Request' : 'Host Match Found!'}
             </h2>
             <p className="opacity-90 text-sm">
-              {currentMatch.status === 'accepted' ? 'Your ride is ready to go' : 'Based on your route and schedule'}
+              {isHostView ? 'Accept or skip this rider' : 'Review and confirm this ride'}
             </p>
           </div>
 
@@ -2472,7 +2474,7 @@ function MatchQueue({
                 onClick={() => handleActionWithNavigation(() => onAcceptMatch(currentMatch.id, currentMatch.ride_requests?.profiles?.full_name), false)}
                 className="flex-1 py-3.5 bg-[#6675FF] hover:bg-[#5b6ae0] text-white rounded-xl font-medium transition-colors shadow-lg shadow-[#6675FF]/20"
               >
-                Please wait confirming your pod
+                Accept & Create Pod
               </button>
             </div>
             <p className="text-xs text-gray-400 text-center mt-3">
