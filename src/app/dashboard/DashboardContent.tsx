@@ -122,6 +122,13 @@ export default function DashboardContent() {
   };
 
   const handleAcceptMatch = async (matchId: string, riderName: string) => {
+    console.log("🎯 [Frontend] Accepting match:", { 
+      matchId, 
+      hostId: user?.id, 
+      riderName,
+      userExists: !!user?.id 
+    });
+    
     try {
       const response = await fetch("/api/matches/accept", {
         method: "POST",
@@ -132,20 +139,23 @@ export default function DashboardContent() {
         }),
       });
 
+      console.log("📊 [Frontend] Accept response status:", response.status);
       const data = await response.json();
+      console.log("📊 [Frontend] Accept response data:", data);
 
       if (response.ok && data.success) {
+        console.log("✅ [Frontend] Match accepted successfully");
         showNotification('success', `Accepted request from ${riderName}!`);
         // Remove accepted match from queue
         setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
         // Refresh pods to show updated seat count
         if (user?.id) fetchConfirmedPods(user.id);
       } else {
-        console.error("Failed to accept match", data.error);
+        console.error("❌ [Frontend] Failed to accept match:", data.error);
         showNotification('error', data.error || 'Failed to accept match');
       }
     } catch (error) {
-      console.error("Error accepting match:", error);
+      console.error("❌ [Frontend] Error accepting match:", error);
       showNotification('error', 'Error accepting match. Please try again.');
     }
   };
