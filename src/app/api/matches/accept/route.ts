@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     console.log("🔍 [API] Calling accept_match_suggestion RPC...");
     const { data, error } = await supabase.rpc("accept_match_suggestion", {
       match_id: matchId,
-      host_id: hostId,
+      p_host_id: hostId,
       pod_name: podName || null,
     });
 
