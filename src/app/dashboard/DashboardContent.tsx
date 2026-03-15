@@ -932,9 +932,9 @@ export default function DashboardContent() {
                                 </div>
                                 <h4 className="text-lg font-bold text-gray-800 mb-1">My Route</h4>
                                 <div className="flex items-center gap-2 text-gray-600 text-sm">
-                                    <span className="truncate max-w-[45%]">{pod.ride_templates.from_location}</span>
+                                    <span className="truncate max-w-[45%]">{pod.ride_templates?.from_location}</span>
                                     <svg className="w-4 h-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                                    <span className="truncate max-w-[45%]">{pod.ride_templates.to_location}</span>
+                                    <span className="truncate max-w-[45%]">{pod.ride_templates?.to_location}</span>
                                 </div>
                                 <div className="mt-3 flex items-center gap-2">
                                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -2410,10 +2410,10 @@ function MatchQueue({
                 </div>
                 <div className="flex-1">
                   <p className="text-xs text-gray-500 uppercase font-semibold">Pickup Location</p>
-                  <p className="text-gray-700">{currentMatch.ride_requests.pickup_location}</p>
-                  {currentMatch.ride_requests.pickup_landmark && (
+                  <p className="text-gray-700">{currentMatch.ride_requests?.pickup_location}</p>
+                  {currentMatch.ride_requests?.pickup_landmark && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Landmark: {currentMatch.ride_requests.pickup_landmark}
+                      Landmark: {currentMatch.ride_requests?.pickup_landmark}
                     </p>
                   )}
                 </div>
@@ -2428,7 +2428,7 @@ function MatchQueue({
                 </div>
                 <div className="flex-1">
                   <p className="text-xs text-gray-500 uppercase font-semibold">Drop-off Location</p>
-                  <p className="text-gray-700">{currentMatch.ride_requests.destination_location || currentMatch.ride_requests.to_location}</p>
+                  <p className="text-gray-700">{currentMatch.ride_requests?.destination_location || currentMatch.ride_requests?.to_location}</p>
                 </div>
               </div>
 
@@ -2456,7 +2456,7 @@ function MatchQueue({
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Cost Contribution</p>
-                  <p className="text-gray-700">₹{currentMatch.ride_requests.fuel_cost_contribution || "50"} (negotiable)</p>
+                  <p className="text-gray-700">₹{currentMatch.ride_requests?.fuel_cost_contribution || "50"} (negotiable)</p>
                 </div>
               </div>
             </div>
@@ -2511,7 +2511,7 @@ function MatchQueue({
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Route</p>
-                  <p className="text-gray-700">{currentMatch.ride_templates.from_location} → {currentMatch.ride_templates.to_location}</p>
+                  <p className="text-gray-700">{currentMatch.ride_templates?.from_location} → {currentMatch.ride_templates?.to_location}</p>
                 </div>
               </div>
 
@@ -2524,7 +2524,7 @@ function MatchQueue({
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Departure Time</p>
                   <p className="text-gray-700">
-                    {currentMatch.ride_templates.departure_time}
+                    {currentMatch.ride_templates?.departure_time}
                   </p>
                 </div>
               </div>
@@ -2538,7 +2538,7 @@ function MatchQueue({
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Vehicle Type</p>
                   <p className="text-gray-700">
-                    {currentMatch.ride_templates.vehicle_type === '2_wheeler' ? '2 Wheeler (Bike)' : '4 Wheeler (Car)'}
+                    {currentMatch.ride_templates?.vehicle_type === '2_wheeler' ? '2 Wheeler (Bike)' : '4 Wheeler (Car)'}
                   </p>
                 </div>
               </div>
