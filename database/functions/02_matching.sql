@@ -168,14 +168,14 @@ BEGIN
     SELECT * INTO template
     FROM ride_templates
     WHERE id = template_id;
-    
+
     IF NOT FOUND THEN
         RETURN 0;
     END IF;
-    
+
     -- Loop through all active ride requests
-    FOR request IN 
-        SELECT * FROM ride_requests 
+    FOR request IN
+        SELECT * FROM ride_requests
         WHERE status = 'active'
         AND rider_id != template.host_id
     LOOP
@@ -185,13 +185,13 @@ BEGIN
         WHERE ride_template_id = template_id
         AND ride_request_id = request.id
         AND status IN ('pending', 'shown', 'accepted');
-        
+
         IF existing_match IS NULL THEN
-            -- Calculate match
+            -- Calculate match using new OSRM-based function
             match_result := calculate_route_match_score(template_id, request.id);
-            
+
             IF (match_result->>'compatible')::BOOLEAN = true THEN
-                -- Create match suggestion
+                -- Create match suggestion with new fields
                 INSERT INTO match_suggestions (
                     ride_template_id,
                     ride_request_id,
@@ -200,23 +200,25 @@ BEGIN
                     overall_score,
                     detour_distance_meters,
                     pickup_distance_meters,
+                    overlapping_distance_meters,
                     status
                 ) VALUES (
                     template_id,
                     request.id,
-                    (match_result->>'route_match_score')::NUMERIC,
-                    (match_result->>'schedule_match_score')::NUMERIC,
-                    (match_result->>'overall_score')::NUMERIC,
+                    (match_result->>'match_score')::NUMERIC,
+                    0, -- No schedule matching anymore
+                    (match_result->>'match_score')::NUMERIC,
                     (match_result->>'pickup_distance_meters')::INTEGER,
                     (match_result->>'pickup_distance_meters')::INTEGER,
+                    (match_result->>'overlapping_distance_meters')::NUMERIC,
                     'pending'
                 );
-                
+
                 suggestions_created := suggestions_created + 1;
             END IF;
         END IF;
     END LOOP;
-    
+
     RETURN suggestions_created;
 END;
 $$;
@@ -239,14 +241,14 @@ BEGIN
     SELECT * INTO request
     FROM ride_requests
     WHERE id = request_id;
-    
+
     IF NOT FOUND THEN
         RETURN 0;
     END IF;
-    
+
     -- Loop through all active ride templates
-    FOR template IN 
-        SELECT * FROM ride_templates 
+    FOR template IN
+        SELECT * FROM ride_templates
         WHERE status = 'active'
         AND host_id != request.rider_id
     LOOP
@@ -256,13 +258,13 @@ BEGIN
         WHERE ride_template_id = template.id
         AND ride_request_id = request_id
         AND status IN ('pending', 'shown', 'accepted');
-        
+
         IF existing_match IS NULL THEN
-            -- Calculate match
+            -- Calculate match using new OSRM-based function
             match_result := calculate_route_match_score(template.id, request_id);
-            
+
             IF (match_result->>'compatible')::BOOLEAN = true THEN
-                -- Create match suggestion
+                -- Create match suggestion with new fields
                 INSERT INTO match_suggestions (
                     ride_template_id,
                     ride_request_id,
@@ -271,23 +273,25 @@ BEGIN
                     overall_score,
                     detour_distance_meters,
                     pickup_distance_meters,
+                    overlapping_distance_meters,
                     status
                 ) VALUES (
                     template.id,
                     request_id,
-                    (match_result->>'route_match_score')::NUMERIC,
-                    (match_result->>'schedule_match_score')::NUMERIC,
-                    (match_result->>'overall_score')::NUMERIC,
+                    (match_result->>'match_score')::NUMERIC,
+                    0, -- No schedule matching anymore
+                    (match_result->>'match_score')::NUMERIC,
                     (match_result->>'pickup_distance_meters')::INTEGER,
                     (match_result->>'pickup_distance_meters')::INTEGER,
+                    (match_result->>'overlapping_distance_meters')::NUMERIC,
                     'pending'
                 );
-                
+
                 suggestions_created := suggestions_created + 1;
             END IF;
         END IF;
     END LOOP;
-    
+
     RETURN suggestions_created;
 END;
 $$;

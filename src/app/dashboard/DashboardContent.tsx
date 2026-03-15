@@ -2454,14 +2454,23 @@ function MatchQueue({
   // Calculate cost contribution based on vehicle type and distance
   const calculateCostContribution = () => {
     const vehicleType = currentMatch?.ride_template?.vehicle_type || currentMatch?.ride_request?.vehicle_preference || 'any';
-    
+
     // Rate: ₹6/km for 4-wheeler, ₹4/km for 2-wheeler
     const ratePerKm = vehicleType === '2_wheeler' ? 4 : 6;
-    
+
     return ratePerKm;
   };
 
   const costPerKm = calculateCostContribution();
+
+  // Calculate overlapping distance and estimated cost
+  const overlappingDistanceKm = currentMatch?.overlapping_distance_meters 
+    ? (currentMatch.overlapping_distance_meters / 1000).toFixed(1)
+    : null;
+  
+  const estimatedCost = overlappingDistanceKm 
+    ? (parseFloat(overlappingDistanceKm) * costPerKm).toFixed(0)
+    : null;
 
   // Determine queue info based on vehicle type
   const vehicleType = currentMatch?.ride_template?.vehicle_type || currentMatch?.ride_request?.vehicle_preference || 'any';
@@ -2631,13 +2640,32 @@ function MatchQueue({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold">Detour</p>
+                <div className="flex-1">
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Distance to Pickup</p>
                   <p className="text-gray-700">
-                    {currentMatch.detour_distance_meters
-                      ? `${(currentMatch.detour_distance_meters / 1000).toFixed(1)} km`
-                      : "Minimal detour"}
+                    {currentMatch.pickup_distance_meters
+                      ? `${(currentMatch.pickup_distance_meters / 1000).toFixed(2)} km`
+                      : "Minimal"}
                   </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="mt-1 bg-purple-100 p-1.5 rounded-lg text-purple-600">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Overlapping Route</p>
+                  <p className="text-gray-700">
+                    {overlappingDistanceKm ? `${overlappingDistanceKm} km together` : "Calculating..."}
+                  </p>
+                  {estimatedCost && (
+                    <p className="text-xs text-green-600 font-semibold mt-1">
+                      Rider pays: ₹{estimatedCost}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -2709,29 +2737,33 @@ function MatchQueue({
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="mt-1 bg-[#4d5ce6]/10 p-1.5 rounded-lg text-[#4d5ce6]">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <div className="mt-1 bg-purple-100 p-1.5 rounded-lg text-purple-600">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold">Departure Time</p>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Your Pickup Distance</p>
                   <p className="text-gray-700">
-                    {currentMatch.ride_template?.departure_time}
+                    {currentMatch.pickup_distance_meters
+                      ? `${(currentMatch.pickup_distance_meters / 1000).toFixed(2)} km from host pickup`
+                      : "Near host pickup"}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="mt-1 bg-purple-100 p-1.5 rounded-lg text-purple-600">
+                <div className="mt-1 bg-green-100 p-1.5 rounded-lg text-green-600">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold">Vehicle Type</p>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Your Destination</p>
                   <p className="text-gray-700">
-                    {currentMatch.ride_template?.vehicle_type === '2_wheeler' ? '2 Wheeler (Bike)' : '4 Wheeler (Car)'}
+                    {currentMatch.destination_distance_meters
+                      ? `${(currentMatch.destination_distance_meters / 1000).toFixed(2)} km from host dropoff`
+                      : "Near host dropoff"}
                   </p>
                 </div>
               </div>
@@ -2744,7 +2776,13 @@ function MatchQueue({
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Your Cost Contribution</p>
-                  <p className="text-gray-700">₹{costPerKm}/km <span className="text-xs text-gray-400">({vehicleType === '2_wheeler' ? '2-wheeler' : '4-wheeler'} rate)</span></p>
+                  <p className="text-gray-700">
+                    {overlappingDistanceKm 
+                      ? `₹${estimatedCost} for ${overlappingDistanceKm} km`
+                      : `₹${costPerKm}/km`
+                    }
+                    <span className="text-xs text-gray-400"> ({vehicleType === '2_wheeler' ? '2-wheeler' : '4-wheeler'} rate)</span>
+                  </p>
                 </div>
               </div>
             </div>
