@@ -34,7 +34,30 @@ export async function POST(request: NextRequest) {
           to_location,
           departure_time,
           days_available,
-          vehicle_type
+          vehicle_type,
+          available_seats,
+          seats_taken
+        ),
+        pod_members(
+          id,
+          rider_id,
+          status,
+          joined_at,
+          rider_confirmed_at,
+          pickup_landmark,
+          pickup_location,
+          ride_request_id,
+          profiles:profiles(
+            id,
+            full_name,
+            phone_number,
+            gender
+          ),
+          ride_requests(
+            id,
+            pickup_location,
+            destination_location
+          )
         )
       `)
       .eq("host_id", userId)
@@ -72,6 +95,15 @@ export async function POST(request: NextRequest) {
             full_name,
             gender,
             phone_number
+          ),
+          pod_members(
+            id,
+            rider_id,
+            status,
+            profiles:profiles(
+              id,
+              full_name
+            )
           )
         )
       `)

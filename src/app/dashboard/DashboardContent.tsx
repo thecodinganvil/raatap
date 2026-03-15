@@ -1179,28 +1179,28 @@ export default function DashboardContent() {
                        <div key={ride.id} className="space-y-4">
                          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-lg font-bold">
-                             {ride.pods?.profiles?.full_name?.charAt(0) || "H"}
+                             {ride.pod?.profiles?.full_name?.charAt(0) || "H"}
                            </div>
                            <div>
                              <p className="font-semibold text-gray-800 flex items-center gap-2">
-                                {ride.pods?.profiles?.full_name || "Host"}
+                                {ride.pod?.profiles?.full_name || "Host"}
                                 <span className="text-xs px-2 py-0.5 bg-[#6675FF]/10 text-[#6675FF] rounded-full font-medium">Host</span>
                              </p>
                              <p className="text-sm text-gray-500">
-                               {ride.pods?.ride_templates?.vehicle_type === '2_wheeler' ? 'Bike' : 'Car'} • {ride.pods?.profiles?.gender || 'N/A'}
+                               {ride.pod?.ride_template?.vehicle_type === '2_wheeler' ? 'Bike' : 'Car'} • {ride.pod?.profiles?.gender || 'N/A'}
                              </p>
                            </div>
-                           <a href={`tel:${ride.pods?.profiles?.phone_number}`} className="ml-auto w-10 h-10 flex items-center justify-center bg-green-100 text-green-600 rounded-full hover:bg-green-200 transition-colors">
+                           <a href={`tel:${ride.pod?.profiles?.phone_number}`} className="ml-auto w-10 h-10 flex items-center justify-center bg-green-100 text-green-600 rounded-full hover:bg-green-200 transition-colors">
                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                            </a>
                          </div>
 
                          {/* Co-Riders View */}
-                         {ride.pods?.pod_members?.length > 1 && (
+                         {ride.pod?.pod_members?.length > 1 && (
                           <div className="mt-4 pt-4 border-t border-gray-100">
                              <p className="text-sm font-medium text-gray-700 mb-2">Co-Riders with you:</p>
                              <div className="space-y-2">
-                               {ride.pods.pod_members
+                               {ride.pod.pod_members
                                  .filter((m: any) => m.rider_id !== user?.id && m.status === 'active') // Exclude self and pending
                                  .map((member: any) => (
                                    <div key={member.id} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100">
@@ -1214,7 +1214,7 @@ export default function DashboardContent() {
                                    </div>
                                ))}
                              </div>
-                             {ride.pods.pod_members.filter((m: any) => m.rider_id !== user?.id && m.status === 'active').length === 0 && (
+                             {ride.pod.pod_members.filter((m: any) => m.rider_id !== user?.id && m.status === 'active').length === 0 && (
                                <p className="text-xs text-gray-400 italic">No other riders yet</p>
                              )}
                           </div>
@@ -1227,7 +1227,7 @@ export default function DashboardContent() {
                            </div>
                            <div className="p-3 bg-[#4d5ce6]/10 rounded-xl">
                              <p className="text-xs text-[#4d5ce6] font-semibold uppercase mb-1">Time</p>
-                             <p className="text-gray-700 text-sm font-medium">{ride.pods?.departure_time}</p>
+                             <p className="text-gray-700 text-sm font-medium">{ride.pod?.ride_template?.departure_time}</p>
                            </div>
                          </div>
                        </div>
