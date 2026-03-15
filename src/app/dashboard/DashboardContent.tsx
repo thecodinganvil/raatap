@@ -913,8 +913,8 @@ export default function DashboardContent() {
           )} 
 
           {/* PENDING PODS - Host accepted, waiting for rider */}
-          {(confirmedPods && confirmedPods.host_pods?.some(pod => 
-            pod.pod_members?.some(m => m.status === 'pending_rider')
+          {(confirmedPods && confirmedPods.host_pods?.some((pod: any) => 
+            pod.pod_members?.some((m: any) => m.status === 'pending_rider')
           )) && (
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50">
                <div className="bg-gradient-to-r from-[#f59e0b] to-[#d97706] p-6 text-white text-center">
@@ -924,7 +924,7 @@ export default function DashboardContent() {
 
                <div className="p-8">
                  {confirmedPods.host_pods
-                   .filter(pod => pod.pod_members?.some(m => m.status === 'pending_rider'))
+                   .filter((pod: any) => pod.pod_members?.some((m: any) => m.status === 'pending_rider'))
                    .map((pod: any) => (
                      <div key={pod.id} className="space-y-4">
                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Pending Riders</h3>
@@ -954,8 +954,8 @@ export default function DashboardContent() {
             // Show confirmed pod card only if:
             // 1. Host has pod with at least one ACTIVE member, OR
             // 2. Rider has active ride
-            (confirmedPods.host_pods?.some(pod => pod.pod_members?.some(m => m.status === 'active'))) ||
-            (confirmedPods.rider_rides?.some(ride => ride.status === 'active'))
+            (confirmedPods.host_pods?.some((pod: any) => pod.pod_members?.some((m: any) => m.status === 'active'))) ||
+            (confirmedPods.rider_rides?.some((ride: any) => ride.status === 'active'))
           )) && (
             // CONFIRMED RIDE CARD
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50">
