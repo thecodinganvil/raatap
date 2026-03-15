@@ -275,12 +275,15 @@ export default function DashboardContent() {
          
          // Allow fetching suggestions if:
          // 1. User is a HOST (host_pods > 0) OR
-         // 2. User has NO confirmed rides (rider_rides == 0)
+         // 2. User has NO ACTIVE confirmed rides (rider_rides with status 'active')
+         const hasActiveRide = data?.rider_rides?.some((ride: any) => ride.status === 'active');
+         
          console.log("🔍 [Dashboard] Checking if should fetch suggestions...");
          console.log("📊 [Dashboard] rider_rides length:", data?.rider_rides?.length || 0);
-         console.log("📊 [Dashboard] Condition result:", !data || data.rider_rides.length === 0);
+         console.log("📊 [Dashboard] Has active ride:", hasActiveRide);
+         console.log("📊 [Dashboard] Condition result:", !data || !hasActiveRide);
          
-         if (!data || data.rider_rides.length === 0) {
+         if (!data || !hasActiveRide) {
            console.log("📥 [Dashboard] Fetching match suggestions for user:", user.id);
            
            const fetchSuggestions = async () => {
