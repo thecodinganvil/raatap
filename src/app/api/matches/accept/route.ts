@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
+/**
+ * Accept a match suggestion
+ * Replaces backend proxy - now calls Supabase directly
+ */
 export async function POST(request: NextRequest) {
   try {
     const { matchId, hostId, podName } = await request.json();
-    console.log("📥 [Frontend] /api/matches/accept:", { matchId, hostId });
+    console.log("📥 [API] /api/matches/accept:", { matchId, hostId, podName });
 
     if (!matchId || !hostId) {
       return NextResponse.json(
@@ -14,30 +22,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call backend API instead of Supabase directly
-    const response = await fetch(`${BACKEND_URL}/api/matches/accept`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matchId, hostId, podName }),
+    // Call the database function to accept the match
+    const { data, error } = await supabase.rpc("accept_match_suggestion", {
+      p_match_id: matchId,
+      p_host_id: hostId,
+      p_pod_name: podName || null,
     });
 
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      console.log("✅ [Frontend] Match accepted successfully");
-      return NextResponse.json(data);
+    if (error) {
+      console.error("❌ [API] Error accepting match:", error);
+      return NextResponse.json(
+        { error: error.message, success: false },
+        { status: 400 }
+      );
     }
 
-    console.error("❌ [Frontend] Backend error:", data.error);
-    return NextResponse.json(
-      { error: data.error || 'Failed to accept match' },
-      { status: response.status }
-    );
+    console.log("✅ [API] Match accepted successfully");
+    return NextResponse.json({
+      success: true,
+      message: "Match accepted successfully",
+      data,
+    });
   } catch (error) {
-    console.error("❌ [Frontend] Backend unavailable:", error);
+    console.error("❌ [API] Unexpected error:", error);
     return NextResponse.json(
-      { error: 'Backend service unavailable. Make sure backend is running.' },
-      { status: 503 }
+      { error: "Internal server error", success: false },
+      { status: 500 }
     );
   }
 }

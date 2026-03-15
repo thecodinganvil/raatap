@@ -6,6 +6,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+/**
+ * Create a ride template
+ * Already uses direct Supabase - no backend proxy
+ */
 export async function POST(request: NextRequest) {
   try {
     const { userId, vehicleType, availableSeats, maxDetourMeters, returnTime } = await request.json();
@@ -35,8 +39,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Trigger matching for existing ride_requests
-    // We do this asynchronously or simply await it if we want to return immediate feedback
-    // Ideally use a background job, but here we await for simplicity in prototype
     await supabase.rpc("generate_match_suggestions_for_ride_template", {
       template_id: result.ride_template_id
     });

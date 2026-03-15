@@ -1,12 +1,19 @@
-
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
+/**
+ * Get current pods and rides for a user
+ * Replaces backend proxy - now calls Supabase directly
+ */
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await request.json();
-    console.log("📥 [Frontend] /api/pods/current:", { userId });
+    console.log("📥 [API] /api/pods/current:", { userId });
 
     if (!userId) {
       return NextResponse.json(
@@ -15,30 +22,75 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call backend API instead of Supabase directly
-    const response = await fetch(`${BACKEND_URL}/api/pods/current`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
-    });
+    // Get host pods (pods where user is the host)
+    const { data: hostPods, error: hostPodsError } = await supabase
+      .from("pods")
+      .select(`
+        *,
+        ride_template:ride_templates(
+          id,
+          from_location,
+          to_location,
+          departure_time,
+          days_available,
+          vehicle_type
+        )
+      `)
+      .eq("host_id", userId)
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      console.log(`✅ [Frontend] Found ${data.host_pods?.length || 0} host pods, ${data.rider_rides?.length || 0} rider rides`);
-      return NextResponse.json(data);
+    if (hostPodsError) {
+      console.error("❌ [API] Error fetching host pods:", hostPodsError);
+      return NextResponse.json(
+        { error: hostPodsError.message },
+        { status: 500 }
+      );
     }
 
-    console.error("❌ [Frontend] Backend error:", data.error);
-    return NextResponse.json(
-      { error: data.error || 'Failed to fetch pods' },
-      { status: response.status }
+    // Get rider rides (rides where user is the rider)
+    const { data: riderRides, error: riderRidesError } = await supabase
+      .from("pod_members")
+      .select(`
+        *,
+        pod:pods(
+          *,
+          ride_template:ride_templates(
+            id,
+            from_location,
+            to_location,
+            departure_time,
+            days_available,
+            vehicle_type,
+            host_id
+          )
+        )
+      `)
+      .eq("rider_id", userId)
+      .in("status", ["active", "pending_host", "pending_rider"])
+      .order("created_at", { ascending: false });
+
+    if (riderRidesError) {
+      console.error("❌ [API] Error fetching rider rides:", riderRidesError);
+      return NextResponse.json(
+        { error: riderRidesError.message },
+        { status: 500 }
+      );
+    }
+
+    console.log(
+      `✅ [API] Found ${hostPods?.length || 0} host pods, ${riderRides?.length || 0} rider rides`
     );
+
+    return NextResponse.json({
+      host_pods: hostPods || [],
+      rider_rides: riderRides || [],
+    });
   } catch (error) {
-    console.error("❌ [Frontend] Backend unavailable:", error);
+    console.error("❌ [API] Unexpected error:", error);
     return NextResponse.json(
-      { error: 'Backend service unavailable. Make sure backend is running.' },
-      { status: 503 }
+      { error: "Internal server error" },
+      { status: 500 }
     );
   }
 }

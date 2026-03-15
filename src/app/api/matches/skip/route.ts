@@ -1,50 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
+/**
+ * Skip/Reject a match suggestion with optional reason
+ * Tracks skip for analytics and improves future matching
+ */
 export async function POST(request: NextRequest) {
   try {
-    const { matchId, userId, userRole } = await request.json();
-    console.log("📥 [Frontend] /api/matches/skip:", { matchId, userId, userRole });
+    const { matchId, userId, reason, customReason } = await request.json();
+    console.log("📥 [API] /api/matches/skip:", { matchId, userId, reason, customReason });
 
-    if (!matchId || !userId || !userRole) {
+    if (!matchId || !userId) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: matchId, userId" },
         { status: 400 }
       );
     }
 
-    if (!['host', 'rider'].includes(userRole)) {
+    // Build skip reason
+    const skipReason = customReason || reason || 'No reason provided';
+
+    // Update match status to skipped
+    const { error } = await supabase
+      .from("match_suggestions")
+      .update({
+        status: "skipped",
+        skipped_at: new Date().toISOString(),
+        skip_reason: skipReason,
+      })
+      .eq("id", matchId)
+      .or(`ride_template.host_id.eq.${userId},ride_request.rider_id.eq.${userId}`);
+
+    if (error) {
+      console.error("❌ [API] Error skipping match:", error);
       return NextResponse.json(
-        { error: "userRole must be either 'host' or 'rider'" },
+        { error: error.message, success: false },
         { status: 400 }
       );
     }
 
-    // Call backend API instead of Supabase directly
-    const response = await fetch(`${BACKEND_URL}/api/matches/skip`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matchId, userId, userRole }),
+    // Log the skip for analytics
+    await supabase.from("activity_logs").insert({
+      log_level: "INFO",
+      function_name: "api_skip_match",
+      action: "User skipped match",
+      user_id: userId,
+      entity_type: "match",
+      entity_id: matchId,
+      details: {
+        reason: skipReason,
+        reason_category: reason || 'custom',
+      },
     });
 
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      console.log("✅ [Frontend] Match skipped successfully");
-      return NextResponse.json(data);
-    }
-
-    console.error("❌ [Frontend] Backend error:", data.error);
-    return NextResponse.json(
-      { error: data.error || 'Failed to skip match' },
-      { status: response.status }
-    );
+    console.log("✅ [API] Match skipped successfully");
+    return NextResponse.json({
+      success: true,
+      message: "Match skipped",
+      skip_reason: skipReason,
+    });
   } catch (error) {
-    console.error("❌ [Frontend] Backend unavailable:", error);
+    console.error("❌ [API] Unexpected error:", error);
     return NextResponse.json(
-      { error: 'Backend service unavailable. Make sure backend is running.' },
-      { status: 503 }
+      { error: "Internal server error", success: false },
+      { status: 500 }
     );
   }
 }
