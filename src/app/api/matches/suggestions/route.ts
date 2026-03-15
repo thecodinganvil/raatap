@@ -35,7 +35,14 @@ export async function POST(request: NextRequest) {
           to_location,
           vehicle_type,
           available_seats,
-          status
+          status,
+          profiles:profiles!ride_templates_host_id_fkey(
+            id,
+            full_name,
+            gender,
+            institution,
+            phone_number
+          )
         ),
         ride_request:ride_requests(
           id,
@@ -43,7 +50,15 @@ export async function POST(request: NextRequest) {
           pickup_location,
           destination_location,
           vehicle_preference,
-          status
+          status,
+          pickup_landmark,
+          profiles:profiles!ride_requests_rider_id_fkey(
+            id,
+            full_name,
+            gender,
+            institution,
+            phone_number
+          )
         )
       `)
       .eq("status", "pending")
