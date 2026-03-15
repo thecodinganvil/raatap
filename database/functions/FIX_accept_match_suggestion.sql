@@ -12,7 +12,7 @@ DROP FUNCTION IF EXISTS accept_match_suggestion(uuid, uuid, text);
 -- ACCEPT MATCH SUGGESTION (Host Action)
 -- =====================================================
 -- Creates pod, locks seat, creates pending pod member
--- Rider must confirm to complete the match
+-- Rider must confirm to complete the matc
 
 CREATE OR REPLACE FUNCTION accept_match_suggestion(
     match_id UUID,
