@@ -18,7 +18,7 @@ DROP FUNCTION IF EXISTS skip_match_suggestion(uuid, uuid, text);
 
 CREATE OR REPLACE FUNCTION accept_match_suggestion(
     match_id UUID,
-    host_id UUID,
+    p_host_id UUID,
     pod_name TEXT DEFAULT NULL
 )
 RETURNS JSON
@@ -40,7 +40,7 @@ BEGIN
     JOIN ride_templates rt ON ms.ride_template_id = rt.id
     WHERE ms.id = match_id
     AND ms.status = 'pending'
-    AND rt.host_id = host_id;
+    AND rt.host_id = p_host_id;
 
     IF NOT FOUND THEN
         RETURN json_build_object('success', false, 'error', 'Match not found or not accessible');
@@ -71,7 +71,7 @@ BEGIN
             status
         ) VALUES (
             match_record.ride_template_id,
-            host_id,
+            p_host_id,
             COALESCE(pod_name, 'Daily Commute - ' || match_record.from_location),
             match_record.days_available,
             match_record.departure_time,
