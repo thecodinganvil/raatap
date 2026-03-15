@@ -933,11 +933,11 @@ export default function DashboardContent() {
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-2">
                                     <span className="text-xs font-bold text-[#6675FF] bg-[#6675FF]/10 px-2 py-1 rounded-full uppercase tracking-wider">
-                                        {pod.ride_templates.vehicle_type === '2_wheeler' ? 'Bike Pool' : 'Car Pool'}
+                                        {pod.ride_templates?.vehicle_type === '2_wheeler' ? 'Bike Pool' : 'Car Pool'}
                                     </span>
                                     <span className="text-sm font-medium text-gray-500 flex items-center gap-1">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                        {pod.ride_templates.departure_time}
+                                        {pod.ride_templates?.departure_time}
                                     </span>
                                 </div>
                                 <h4 className="text-lg font-bold text-gray-800 mb-1">My Route</h4>
@@ -1030,7 +1030,7 @@ export default function DashboardContent() {
                                 <span className="text-xs px-2 py-0.5 bg-[#6675FF]/10 text-[#6675FF] rounded-full font-medium">Host</span>
                              </p>
                              <p className="text-sm text-gray-500">
-                               {ride.pods?.ride_templates?.vehicle_type === '2_wheeler' ? 'Bike' : 'Car'} • {ride.pods?.profiles?.gender}
+                               {ride.pods?.ride_templates?.vehicle_type === '2_wheeler' ? 'Bike' : 'Car'} • {ride.pods?.profiles?.gender || 'N/A'}
                              </p>
                            </div>
                            <a href={`tel:${ride.pods?.profiles?.phone_number}`} className="ml-auto w-10 h-10 flex items-center justify-center bg-green-100 text-green-600 rounded-full hover:bg-green-200 transition-colors">
@@ -2296,7 +2296,7 @@ function MatchQueue({
 
   // Calculate cost contribution based on vehicle type and distance
   const calculateCostContribution = () => {
-    const vehicleType = currentMatch?.ride_template?.vehicle_type || currentMatch?.ride_request?.vehicle_preference;
+    const vehicleType = currentMatch?.ride_template?.vehicle_type || currentMatch?.ride_request?.vehicle_preference || 'any';
     
     // Rate: ₹6/km for 4-wheeler, ₹4/km for 2-wheeler
     const ratePerKm = vehicleType === '2_wheeler' ? 4 : 6;
@@ -2317,6 +2317,18 @@ function MatchQueue({
       <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50 mt-6">
         <div className="p-8 text-center">
           <p className="text-gray-500">Loading match details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Guard: Check if ride_template or ride_request exists
+  if (!currentMatch?.ride_template && !currentMatch?.ride_request) {
+    console.error("❌ [Dashboard] Invalid match data:", currentMatch);
+    return (
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50 mt-6">
+        <div className="p-8 text-center">
+          <p className="text-gray-500">Invalid match data</p>
         </div>
       </div>
     );
