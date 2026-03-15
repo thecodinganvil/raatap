@@ -33,8 +33,7 @@ export async function POST(request: NextRequest) {
         skipped_at: new Date().toISOString(),
         skip_reason: skipReason,
       })
-      .eq("id", matchId)
-      .or(`ride_template.host_id.eq.${userId},ride_request.rider_id.eq.${userId}`);
+      .eq("id", matchId);
 
     if (error) {
       console.error("❌ [API] Error skipping match:", error);
