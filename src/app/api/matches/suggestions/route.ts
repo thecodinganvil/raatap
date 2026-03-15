@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
           id,
           rider_id,
           pickup_location,
-          drop_location,
+          destination_location,
           vehicle_preference,
           status
         )
