@@ -340,7 +340,6 @@ GRANT EXECUTE ON FUNCTION get_user_activity TO authenticated;
 
 -- Only service role can insert/delete logs
 GRANT ALL ON activity_logs TO service_role;
-GRANT ALL ON SEQUENCE activity_logs_id_seq TO service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;
 
 -- =====================================================

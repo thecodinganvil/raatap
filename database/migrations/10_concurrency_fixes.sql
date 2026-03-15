@@ -2,6 +2,9 @@
 -- This function replaces the previous confirm_match_suggestion with a version that
 -- uses Row Level Locking (FOR UPDATE) to prevent overbooking race conditions.
 
+-- Drop existing function first (cannot change parameter names otherwise)
+DROP FUNCTION IF EXISTS confirm_match_suggestion(uuid, uuid);
+
 CREATE OR REPLACE FUNCTION confirm_match_suggestion(
     match_id UUID,
     p_rider_id UUID

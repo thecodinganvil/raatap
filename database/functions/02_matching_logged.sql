@@ -44,13 +44,13 @@ BEGIN
     IF NOT FOUND THEN
         -- Log error: template not found
         PERFORM log_error(
-            'calculate_route_match_score',
-            'Template not found or inactive',
-            'Template ID not found or not active',
-            NULL,
-            'ride_template',
-            template_id,
-            jsonb_build_object('request_id', request_id)
+            p_function_name := 'calculate_route_match_score',
+            p_action := 'Template not found or inactive',
+            p_error_message := 'Template ID not found or not active',
+            p_user_id := NULL,
+            p_entity_type := 'ride_template',
+            p_entity_id := template_id,
+            p_details := jsonb_build_object('request_id', request_id)
         );
         
         RETURN json_build_object('compatible', false, 'reason', 'Template not found or inactive');
@@ -80,13 +80,13 @@ BEGIN
     IF NOT FOUND THEN
         -- Log error: request not found
         PERFORM log_error(
-            'calculate_route_match_score',
-            'Request not found or inactive',
-            'Request ID not found or not active',
-            NULL,
-            'ride_request',
-            request_id,
-            jsonb_build_object('template_id', template_id)
+            p_function_name := 'calculate_route_match_score',
+            p_action := 'Request not found or inactive',
+            p_error_message := 'Request ID not found or not active',
+            p_user_id := NULL,
+            p_entity_type := 'ride_request',
+            p_entity_id := request_id,
+            p_details := jsonb_build_object('template_id', template_id)
         );
         
         RETURN json_build_object('compatible', false, 'reason', 'Request not found or inactive');
@@ -369,13 +369,13 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
     -- Log unexpected error
     PERFORM log_error(
-        'calculate_route_match_score',
-        'Unexpected error in match calculation',
-        SQLERRM,
-        NULL,
-        'match',
-        NULL,
-        jsonb_build_object(
+        p_function_name := 'calculate_route_match_score',
+        p_action := 'Unexpected error in match calculation',
+        p_error_message := SQLERRM,
+        p_user_id := NULL,
+        p_entity_type := 'match',
+        p_entity_id := NULL,
+        p_details := jsonb_build_object(
             'template_id', template_id,
             'request_id', request_id,
             'sql_state', SQLSTATE
