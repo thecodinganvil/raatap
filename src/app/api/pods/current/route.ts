@@ -1,12 +1,19 @@
-
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const BACKEND_URL = process.env.BACKEND_URL || 'https://raatap-backend.onrender.com';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
+/**
+ * Get current pods and rides for a user
+ * Replaces backend proxy - now calls Supabase directly
+ */
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await request.json();
-    console.log("📥 [Frontend] /api/pods/current:", { userId });
+    console.log("📥 [API] /api/pods/current:", { userId });
 
     if (!userId) {
       return NextResponse.json(
@@ -15,35 +22,75 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call backend API instead of Supabase directly
-    const response = await fetch(`${BACKEND_URL}/api/pods/current`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
-    });
+    // Get host pods (pods where user is the host)
+    const { data: hostPods, error: hostPodsError } = await supabase
+      .from("pods")
+      .select(`
+        *,
+        ride_template:ride_templates(
+          id,
+          from_location,
+          to_location,
+          departure_time,
+          days_available,
+          vehicle_type
+        )
+      `)
+      .eq("host_id", userId)
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("❌ [Frontend] Backend error:", errorData);
+    if (hostPodsError) {
+      console.error("❌ [API] Error fetching host pods:", hostPodsError);
       return NextResponse.json(
-        { error: errorData.error || 'Failed to fetch pods' },
-        { status: response.status }
+        { error: hostPodsError.message },
+        { status: 500 }
       );
     }
 
-    const data = await response.json();
-    
-    // Ensure data structure is correct
-    const hostPods = Array.isArray(data.host_pods) ? data.host_pods : [];
-    const riderRides = Array.isArray(data.rider_rides) ? data.rider_rides : [];
-    
-    console.log(`✅ [Frontend] Found ${hostPods.length} host pods, ${riderRides.length} rider rides`);
-    return NextResponse.json({ ...data, host_pods: hostPods, rider_rides: riderRides });
+    // Get rider rides (rides where user is the rider)
+    const { data: riderRides, error: riderRidesError } = await supabase
+      .from("pod_members")
+      .select(`
+        *,
+        pod:pods(
+          *,
+          ride_template:ride_templates(
+            id,
+            from_location,
+            to_location,
+            departure_time,
+            days_available,
+            vehicle_type,
+            host_id
+          )
+        )
+      `)
+      .eq("rider_id", userId)
+      .in("status", ["active", "pending_host", "pending_rider"])
+      .order("created_at", { ascending: false });
+
+    if (riderRidesError) {
+      console.error("❌ [API] Error fetching rider rides:", riderRidesError);
+      return NextResponse.json(
+        { error: riderRidesError.message },
+        { status: 500 }
+      );
+    }
+
+    console.log(
+      `✅ [API] Found ${hostPods?.length || 0} host pods, ${riderRides?.length || 0} rider rides`
+    );
+
+    return NextResponse.json({
+      host_pods: hostPods || [],
+      rider_rides: riderRides || [],
+    });
   } catch (error) {
-    console.error("❌ [Frontend] Backend unavailable:", error);
+    console.error("❌ [API] Unexpected error:", error);
     return NextResponse.json(
-      { error: 'Backend service unavailable. Make sure backend is running.' },
-      { status: 503 }
+      { error: "Internal server error" },
+      { status: 500 }
     );
   }
 }

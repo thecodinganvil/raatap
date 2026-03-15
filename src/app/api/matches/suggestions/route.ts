@@ -1,12 +1,19 @@
-
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const BACKEND_URL = process.env.BACKEND_URL || 'https://raatap-backend.onrender.com';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
+/**
+ * Get match suggestions for a user
+ * Replaces backend proxy - now calls Supabase directly
+ */
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await request.json();
-    console.log("📥 [Frontend] /api/matches/suggestions:", { userId });
+    console.log("📥 [API] /api/matches/suggestions:", { userId });
 
     if (!userId) {
       return NextResponse.json(
@@ -15,30 +22,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call backend API instead of Supabase directly
-    const response = await fetch(`${BACKEND_URL}/api/matches/suggestions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
-    });
+    // Get match suggestions where user is either host or rider
+    const { data: suggestions, error } = await supabase
+      .from("match_suggestions")
+      .select(`
+        *,
+        ride_template:ride_templates!inner(
+          id,
+          host_id,
+          from_location,
+          to_location,
+          vehicle_type,
+          available_seats,
+          status
+        ),
+        ride_request:ride_requests!inner(
+          id,
+          rider_id,
+          pickup_location,
+          drop_location,
+          vehicle_preference,
+          status
+        )
+      `)
+      .or(`ride_template.host_id.eq.${userId},ride_request.rider_id.eq.${userId}`)
+      .in("status", ["pending", "shown", "accepted"])
+      .order("created_at", { ascending: false });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      console.log(`✅ [Frontend] Found ${data.length} match suggestions`);
-      return NextResponse.json(data);
+    if (error) {
+      console.error("❌ [API] Error fetching suggestions:", error);
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
     }
 
-    console.error("❌ [Frontend] Backend error:", data.error);
-    return NextResponse.json(
-      { error: data.error || 'Failed to fetch suggestions' },
-      { status: response.status }
-    );
+    console.log(`✅ [API] Found ${suggestions?.length || 0} match suggestions`);
+    return NextResponse.json(suggestions || []);
   } catch (error) {
-    console.error("❌ [Frontend] Backend unavailable:", error);
+    console.error("❌ [API] Unexpected error:", error);
     return NextResponse.json(
-      { error: 'Backend service unavailable. Make sure backend is running.' },
-      { status: 503 }
+      { error: "Internal server error" },
+      { status: 500 }
     );
   }
 }

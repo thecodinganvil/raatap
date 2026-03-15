@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const BACKEND_URL = process.env.BACKEND_URL || 'https://raatap-backend.onrender.com';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
+/**
+ * Confirm a match suggestion
+ * Replaces backend proxy - now calls Supabase directly
+ */
 export async function POST(request: NextRequest) {
   try {
     const { matchId, riderId } = await request.json();
-    console.log("📥 [Frontend] /api/matches/confirm:", { matchId, riderId });
+    console.log("📥 [API] /api/matches/confirm:", { matchId, riderId });
 
     if (!matchId || !riderId) {
       return NextResponse.json(
@@ -14,30 +22,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call backend API instead of Supabase directly
-    const response = await fetch(`${BACKEND_URL}/api/matches/confirm`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matchId, riderId }),
+    // Call the database function to confirm the match
+    const { data, error } = await supabase.rpc("confirm_match_suggestion", {
+      p_match_id: matchId,
+      p_rider_id: riderId,
     });
 
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      console.log("✅ [Frontend] Match confirmed successfully");
-      return NextResponse.json(data);
+    if (error) {
+      console.error("❌ [API] Error confirming match:", error);
+      return NextResponse.json(
+        { error: error.message, success: false },
+        { status: 400 }
+      );
     }
 
-    console.error("❌ [Frontend] Backend error:", data.error);
-    return NextResponse.json(
-      { error: data.error || 'Failed to confirm match' },
-      { status: response.status }
-    );
+    console.log("✅ [API] Match confirmed successfully");
+    return NextResponse.json({
+      success: true,
+      message: "Match confirmed successfully",
+      data,
+    });
   } catch (error) {
-    console.error("❌ [Frontend] Backend unavailable:", error);
+    console.error("❌ [API] Unexpected error:", error);
     return NextResponse.json(
-      { error: 'Backend service unavailable. Make sure backend is running.' },
-      { status: 503 }
+      { error: "Internal server error", success: false },
+      { status: 500 }
     );
   }
 }
