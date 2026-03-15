@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       `)
       .eq("rider_id", userId)
       .in("status", ["active", "pending_host", "pending_rider"])
-      .order("created_at", { ascending: false });
+      .order("joined_at", { ascending: false });
 
     if (riderRidesError) {
       console.error("❌ [API] Error fetching rider rides:", riderRidesError);

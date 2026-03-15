@@ -131,10 +131,11 @@ BEGIN
     
     -- Schedule match score: weighted average of time and day compatibility
     schedule_match_score := (time_compatibility * 0.7 + day_overlap * 0.3);
-    
+
     -- Overall score: weighted average
-    overall_score := (route_match_score * 0.6 + schedule_match_score * 0.4);
-    
+    -- Route: 85% (hard to change), Schedule: 15% (people can adjust timing)
+    overall_score := (route_match_score * 0.85 + schedule_match_score * 0.15);
+
     RETURN json_build_object(
         'compatible', true,
         'route_match_score', route_match_score,
