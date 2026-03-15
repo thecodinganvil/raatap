@@ -13,7 +13,7 @@ const supabase = createClient(
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await request.json();
-    console.log("📥 [API] /api/matches/suggestions:", { userId });
+    console.log("📥 [API] /api/matches/suggestions - userId:", userId);
 
     if (!userId) {
       return NextResponse.json(
@@ -57,7 +57,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`✅ [API] Found ${suggestions?.length || 0} match suggestions`);
+    console.log("📊 [API] Query result:", suggestions);
+    console.log("📊 [API] Number of suggestions found:", suggestions?.length || 0);
+    console.log("✅ [API] Returning suggestions:", suggestions?.length || 0);
+    
     return NextResponse.json(suggestions || []);
   } catch (error) {
     console.error("❌ [API] Unexpected error:", error);
