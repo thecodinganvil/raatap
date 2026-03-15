@@ -261,30 +261,45 @@ export default function DashboardContent() {
     if (user?.id) {
        fetchConfirmedPods(user.id).then((data) => {
          if (!isMounted) return;
-         console.log("Dashboard fetchConfirmedPods data:", data);
+         console.log("📊 [Dashboard] fetchConfirmedPods data:", data);
+         
          // Allow fetching suggestions if:
          // 1. User is a HOST (host_pods > 0) OR
          // 2. User has NO confirmed rides (rider_rides == 0)
+         console.log("🔍 [Dashboard] Checking if should fetch suggestions...");
+         console.log("📊 [Dashboard] rider_rides length:", data?.rider_rides?.length || 0);
+         console.log("📊 [Dashboard] Condition result:", !data || data.rider_rides.length === 0);
+         
          if (!data || data.rider_rides.length === 0) {
+           console.log("📥 [Dashboard] Fetching match suggestions for user:", user.id);
+           
            const fetchSuggestions = async () => {
              setLoadingSuggestions(true);
              try {
+               console.log("📡 [Dashboard] Calling /api/matches/suggestions...");
                const response = await fetch("/api/matches/suggestions", {
                  method: "POST",
                  headers: { "Content-Type": "application/json" },
                  body: JSON.stringify({ userId: user.id }),
                });
+               console.log("📊 [Dashboard] Match suggestions response status:", response.status);
+               
                if (response.ok && isMounted) {
-                 const data = await response.json();
-                 setMatchSuggestions(data);
+                 const suggestionsData = await response.json();
+                 console.log("🎯 [Dashboard] Received match suggestions:", suggestionsData);
+                 console.log("🎯 [Dashboard] Number of suggestions:", suggestionsData.length);
+                 setMatchSuggestions(suggestionsData);
+                 console.log("✅ [Dashboard] Match suggestions set successfully");
                }
              } catch (error) {
-               console.error("Error fetching suggestions:", error);
+               console.error("❌ [Dashboard] Error fetching suggestions:", error);
              } finally {
                if (isMounted) setLoadingSuggestions(false);
              }
            };
            fetchSuggestions();
+         } else {
+           console.log("⏭️ [Dashboard] Skipping suggestions fetch - user has confirmed rides");
          }
        });
     }

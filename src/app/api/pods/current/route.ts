@@ -13,7 +13,7 @@ const supabase = createClient(
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await request.json();
-    console.log("📥 [API] /api/pods/current:", { userId });
+    console.log("📥 [API] /api/pods/current - userId:", userId);
 
     if (!userId) {
       return NextResponse.json(
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get host pods (pods where user is the host)
+    console.log("🔍 [API] Fetching host pods for user:", userId);
     const { data: hostPods, error: hostPodsError } = await supabase
       .from("pods")
       .select(`
@@ -47,8 +48,10 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+    console.log("✅ [API] Found", hostPods?.length || 0, "host pods");
 
     // Get rider rides (rides where user is the rider)
+    console.log("🔍 [API] Fetching rider rides for user:", userId);
     const { data: riderRides, error: riderRidesError } = await supabase
       .from("pod_members")
       .select(`
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
       `)
       .eq("rider_id", userId)
       .in("status", ["active", "pending_host", "pending_rider"])
-      .order("created_at", { ascending: false });
+      .order("joined_at", { ascending: false });
 
     if (riderRidesError) {
       console.error("❌ [API] Error fetching rider rides:", riderRidesError);
@@ -77,9 +80,10 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+    console.log("✅ [API] Found", riderRides?.length || 0, "rider rides");
 
     console.log(
-      `✅ [API] Found ${hostPods?.length || 0} host pods, ${riderRides?.length || 0} rider rides`
+      `✅ [API] Total - Host pods: ${hostPods?.length || 0}, Rider rides: ${riderRides?.length || 0}`
     );
 
     return NextResponse.json({
