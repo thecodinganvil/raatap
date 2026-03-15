@@ -559,7 +559,7 @@ POST /api/matches/calculate-detour -- OSRM detour calculation
 ```
 POST /api/rides/templates/create -- Create ride template
 POST /api/rides/requests/create  -- Create ride request
-POST /api/rides/seats/manage     -- Manage seat capacity
+POST /api/rides/seats/manag    -- Manage seat capacity
 ```
 
 ### **Pods:**
