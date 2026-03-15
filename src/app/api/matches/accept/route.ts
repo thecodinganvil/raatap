@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
 
     // Call the database function to accept the match
     const { data, error } = await supabase.rpc("accept_match_suggestion", {
-      p_match_id: matchId,
-      p_host_id: hostId,
-      p_pod_name: podName || null,
+      match_id: matchId,
+      host_id: hostId,
+      pod_name: podName || null,
     });
 
     if (error) {

@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         )
       `)
       .eq("status", "pending")
-      .order("created_at", { ascending: false });
+      .order("overall_score", { ascending: false });
 
     if (error) {
       console.error("❌ [API] Error fetching suggestions:", error);

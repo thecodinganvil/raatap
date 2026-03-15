@@ -2286,18 +2286,15 @@ function MatchQueue({
 
   // Calculate cost contribution based on vehicle type and distance
   const calculateCostContribution = () => {
-    const detourKm = (currentMatch?.detour_distance_meters || 0) / 1000;
     const vehicleType = currentMatch?.ride_template?.vehicle_type || currentMatch?.ride_request?.vehicle_preference;
     
     // Rate: ₹6/km for 4-wheeler, ₹4/km for 2-wheeler
     const ratePerKm = vehicleType === '2_wheeler' ? 4 : 6;
-    const calculatedCost = Math.round(detourKm * ratePerKm);
     
-    // Return calculated cost or fallback to existing value
-    return currentMatch?.ride_request?.fuel_cost_contribution || calculatedCost || 50;
+    return ratePerKm;
   };
 
-  const costContribution = calculateCostContribution();
+  const costPerKm = calculateCostContribution();
 
   // Determine queue info based on vehicle type
   const vehicleType = currentMatch?.ride_template?.vehicle_type || currentMatch?.ride_request?.vehicle_preference || 'any';
@@ -2473,7 +2470,7 @@ function MatchQueue({
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Cost Contribution</p>
-                  <p className="text-gray-700">₹{costContribution} <span className="text-xs text-gray-400">({vehicleType === '2_wheeler' ? '₹4/km' : '₹6/km'} × {(currentMatch?.detour_distance_meters ? (currentMatch.detour_distance_meters / 1000).toFixed(1) : '0')} km)</span></p>
+                  <p className="text-gray-700">₹{costPerKm}/km <span className="text-xs text-gray-400">({vehicleType === '2_wheeler' ? '2-wheeler' : '4-wheeler'} rate)</span></p>
                 </div>
               </div>
             </div>
@@ -2486,10 +2483,10 @@ function MatchQueue({
                 Skip
               </button>
               <button
-                onClick={() => handleActionWithNavigation(() => onAcceptMatch(currentMatch.id, currentMatch.ride_requests?.profiles?.full_name), false)}
+                onClick={() => handleActionWithNavigation(() => onAcceptMatch(currentMatch.id, currentMatch.ride_request?.profiles?.full_name), false)}
                 className="flex-1 py-3.5 bg-[#6675FF] hover:bg-[#5b6ae0] text-white rounded-xl font-medium transition-colors shadow-lg shadow-[#6675FF]/20"
               >
-                Accept & Create Pod
+                Accept
               </button>
             </div>
             <p className="text-xs text-gray-400 text-center mt-3">
@@ -2568,7 +2565,7 @@ function MatchQueue({
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Your Cost Contribution</p>
-                  <p className="text-gray-700">₹{costContribution} <span className="text-xs text-gray-400">({vehicleType === '2_wheeler' ? '₹4/km' : '₹6/km'} × {(currentMatch?.detour_distance_meters ? (currentMatch.detour_distance_meters / 1000).toFixed(1) : '0')} km)</span></p>
+                  <p className="text-gray-700">₹{costPerKm}/km <span className="text-xs text-gray-400">({vehicleType === '2_wheeler' ? '2-wheeler' : '4-wheeler'} rate)</span></p>
                 </div>
               </div>
             </div>
