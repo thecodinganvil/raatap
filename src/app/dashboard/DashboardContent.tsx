@@ -950,11 +950,11 @@ export default function DashboardContent() {
                                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                                         <div
                                             className="h-full bg-green-500 rounded-full transition-all duration-500"
-                                            style={{ width: `${pod.ride_templates.available_seats > 0 ? (pod.ride_templates.seats_taken / pod.ride_templates.available_seats) * 100 : 0}%` }}
+                                            style={{ width: `${pod.ride_templates?.available_seats > 0 ? (pod.ride_templates?.seats_taken || 0) / (pod.ride_templates?.available_seats || 1) * 100 : 0}%` }}
                                         ></div>
                                      </div>
                                      <span className="text-xs font-semibold text-gray-500">
-                                        {pod.ride_templates.seats_taken}/{pod.ride_templates.available_seats} Seats
+                                        {pod.ride_templates?.seats_taken || 0}/{pod.ride_templates?.available_seats || 0} Seats
                                      </span>
                                 </div>
                             </div>
