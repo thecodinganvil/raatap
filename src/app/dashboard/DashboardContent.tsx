@@ -2383,14 +2383,14 @@ function MatchQueue({
           <>
             <div className="flex items-center gap-4 mb-6">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xl font-bold">
-                {currentMatch.ride_requests.profiles.full_name?.charAt(0) || "R"}
+                {currentMatch.ride_requests?.profiles?.full_name?.charAt(0) || "R"}
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">
-                  {currentMatch.ride_requests.profiles.full_name || "Rider"}
+                  {currentMatch.ride_requests?.profiles?.full_name || "Rider"}
                 </h3>
                 <p className="text-gray-500 text-sm">
-                  {currentMatch.ride_requests.profiles.gender} • {currentMatch.ride_requests.profiles.institution}
+                  {currentMatch.ride_requests?.profiles?.gender || "N/A"} • {currentMatch.ride_requests?.profiles?.institution || "N/A"}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                   <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
@@ -2469,7 +2469,7 @@ function MatchQueue({
                 Skip
               </button>
               <button
-                onClick={() => handleActionWithNavigation(() => onAcceptMatch(currentMatch.id, currentMatch.ride_requests.profiles.full_name), false)}
+                onClick={() => handleActionWithNavigation(() => onAcceptMatch(currentMatch.id, currentMatch.ride_requests?.profiles?.full_name), false)}
                 className="flex-1 py-3.5 bg-[#6675FF] hover:bg-[#5b6ae0] text-white rounded-xl font-medium transition-colors shadow-lg shadow-[#6675FF]/20"
               >
                 Please wait confirming your pod
@@ -2484,14 +2484,14 @@ function MatchQueue({
           <>
             <div className="flex items-center gap-4 mb-6">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xl font-bold">
-                {currentMatch.ride_templates.profiles.full_name?.charAt(0) || "H"}
+                {currentMatch.ride_templates?.profiles?.full_name?.charAt(0) || "H"}
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">
-                  {currentMatch.ride_templates.profiles.full_name || "Host"}
+                  {currentMatch.ride_templates?.profiles?.full_name || "Host"}
                 </h3>
                 <p className="text-gray-500 text-sm">
-                  {currentMatch.ride_templates.vehicle_type === '2_wheeler' ? '🏍️ Bike' : '🚗 Car'} • {currentMatch.ride_templates.profiles.gender} • {currentMatch.ride_templates.profiles.institution}
+                  {currentMatch.ride_templates?.vehicle_type === '2_wheeler' ? '🏍️ Bike' : '🚗 Car'} • {currentMatch.ride_templates?.profiles?.gender || "N/A"} • {currentMatch.ride_templates?.profiles?.institution || "N/A"}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                   <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
