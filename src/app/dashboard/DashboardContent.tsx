@@ -290,6 +290,13 @@ export default function DashboardContent() {
                  console.log("🎯 [Dashboard] Number of suggestions:", suggestionsData.length);
                  setMatchSuggestions(suggestionsData);
                  console.log("✅ [Dashboard] Match suggestions set successfully");
+               } else if (isMounted) {
+                 // Log error response
+                 const errorData = await response.json();
+                 console.error("❌ [Dashboard] API Error Response:", errorData);
+                 console.error("❌ [Dashboard] Error code:", errorData.code);
+                 console.error("❌ [Dashboard] Error hint:", errorData.hint);
+                 console.error("❌ [Dashboard] Error details:", errorData.details_message);
                }
              } catch (error) {
                console.error("❌ [Dashboard] Error fetching suggestions:", error);

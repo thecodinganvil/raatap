@@ -51,8 +51,15 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("❌ [API] Error fetching suggestions:", error);
+      console.error("❌ [API] Error details:", JSON.stringify(error, null, 2));
       return NextResponse.json(
-        { error: error.message },
+        { 
+          error: error.message,
+          details: error,
+          code: error.code,
+          hint: error.hint,
+          details_message: error.details 
+        },
         { status: 500 }
       );
     }
