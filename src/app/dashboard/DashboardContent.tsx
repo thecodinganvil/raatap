@@ -910,7 +910,53 @@ export default function DashboardContent() {
                  {loadingPods ? "Checking for scheduled rides..." : "Finding your best matches..."}
                </p>
              </div>
-          )} {(confirmedPods && (confirmedPods.host_pods?.length > 0 || confirmedPods.rider_rides?.length > 0)) && (
+          )} 
+
+          {/* PENDING PODS - Host accepted, waiting for rider */}
+          {(confirmedPods && confirmedPods.host_pods?.some(pod => 
+            pod.pod_members?.some(m => m.status === 'pending_rider')
+          )) && (
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50">
+               <div className="bg-gradient-to-r from-[#f59e0b] to-[#d97706] p-6 text-white text-center">
+                 <h2 className="text-2xl font-semibold mb-1">Waiting for rider confirmation</h2>
+                 <p className="opacity-90">You've accepted, rider needs to confirm</p>
+               </div>
+
+               <div className="p-8">
+                 {confirmedPods.host_pods
+                   .filter(pod => pod.pod_members?.some(m => m.status === 'pending_rider'))
+                   .map((pod: any) => (
+                     <div key={pod.id} className="space-y-4">
+                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Pending Riders</h3>
+                       {pod.pod_members
+                         .filter((member: any) => member.status === 'pending_rider')
+                         .map((member: any) => (
+                           <div key={member.id} className="p-4 border border-amber-200 bg-amber-50 rounded-xl">
+                             <div className="flex items-center gap-3">
+                               <div className="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold">
+                                 {member.profiles?.full_name?.charAt(0) || "R"}
+                               </div>
+                               <div>
+                                 <p className="font-semibold text-gray-800">{member.profiles?.full_name || "Rider"}</p>
+                                 <p className="text-xs text-amber-700">Waiting for confirmation</p>
+                               </div>
+                             </div>
+                           </div>
+                         ))}
+                     </div>
+                   ))}
+               </div>
+            </div>
+          )}
+
+          {/* CONFIRMED PODS */}
+          {(confirmedPods && (
+            // Show confirmed pod card only if:
+            // 1. Host has pod with at least one ACTIVE member, OR
+            // 2. Rider has active ride
+            (confirmedPods.host_pods?.some(pod => pod.pod_members?.some(m => m.status === 'active'))) ||
+            (confirmedPods.rider_rides?.some(ride => ride.status === 'active'))
+          )) && (
             // CONFIRMED RIDE CARD
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50">
                <div className="bg-gradient-to-r from-[#10b981] to-[#059669] p-6 text-white text-center">
