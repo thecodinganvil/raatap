@@ -46,13 +46,13 @@ BEGIN
 
     IF NOT FOUND THEN
         PERFORM log_error(
-            'calculate_route_match_score',
-            'Template not found or inactive',
-            'Template ID not found or not active',
-            NULL,
-            'ride_template',
-            template_id,
-            jsonb_build_object('request_id', request_id)
+            p_function_name := 'calculate_route_match_score',
+            p_action := 'Template not found or inactive',
+            p_error_message := 'Template ID not found or not active',
+            p_user_id := NULL,
+            p_entity_type := 'ride_template',
+            p_entity_id := template_id,
+            p_details := jsonb_build_object('request_id', request_id)
         );
         
         RETURN json_build_object('compatible', false, 'reason', 'Template not found or inactive');
@@ -65,13 +65,13 @@ BEGIN
 
     IF NOT FOUND THEN
         PERFORM log_error(
-            'calculate_route_match_score',
-            'Request not found or inactive',
-            'Request ID not found or not active',
-            NULL,
-            'ride_request',
-            request_id,
-            jsonb_build_object('template_id', template_id)
+            p_function_name := 'calculate_route_match_score',
+            p_action := 'Request not found or inactive',
+            p_error_message := 'Request ID not found or not active',
+            p_user_id := NULL,
+            p_entity_type := 'ride_request',
+            p_entity_id := request_id,
+            p_details := jsonb_build_object('template_id', template_id)
         );
         
         RETURN json_build_object('compatible', false, 'reason', 'Request not found or inactive');
@@ -380,13 +380,13 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
     -- Log unexpected error
     PERFORM log_error(
-        'calculate_route_match_score',
-        'Unexpected error in match calculation',
-        SQLERRM,
-        NULL,
-        'match',
-        NULL,
-        jsonb_build_object(
+        p_function_name := 'calculate_route_match_score',
+        p_action := 'Unexpected error in match calculation',
+        p_error_message := SQLERRM,
+        p_user_id := NULL,
+        p_entity_type := 'match',
+        p_entity_id := NULL,
+        p_details := jsonb_build_object(
             'template_id', template_id,
             'request_id', request_id,
             'sql_state', SQLSTATE
@@ -398,5 +398,268 @@ EXCEPTION WHEN OTHERS THEN
         'reason', 'Internal error during match calculation',
         'error', SQLERRM
     );
+END;
+$$;
+
+-- =================================================================
+-- MATCH GENERATION FUNCTIONS
+-- =================================================================
+-- These functions actually INSERT records into match_suggestions table
+
+-- Function to generate matches for a new ride template
+CREATE OR REPLACE FUNCTION generate_match_suggestions_for_ride_template(
+    template_id UUID
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    template RECORD;
+    request RECORD;
+    match_result JSON;
+    suggestions_created INTEGER := 0;
+    existing_match UUID;
+    v_route_match_score NUMERIC;
+    v_schedule_match_score NUMERIC;
+    v_overall_score NUMERIC;
+    v_pickup_distance NUMERIC;
+    v_drop_distance NUMERIC;
+BEGIN
+    -- Get the template
+    SELECT * INTO template
+    FROM ride_templates
+    WHERE id = template_id;
+
+    IF NOT FOUND THEN
+        RETURN 0;
+    END IF;
+
+    -- Log template retrieval
+    PERFORM log_activity(
+        'INFO',
+        'generate_match_suggestions_for_ride_template',
+        'Starting match generation for template',
+        template.host_id,
+        'ride_template',
+        template_id,
+        jsonb_build_object(
+            'from_location', template.from_location,
+            'to_location', template.to_location
+        )
+    );
+
+    -- Loop through all active ride requests
+    FOR request IN
+        SELECT * FROM ride_requests
+        WHERE status = 'active'
+        AND rider_id != template.host_id
+    LOOP
+        -- Check if match already exists
+        SELECT id INTO existing_match
+        FROM match_suggestions
+        WHERE ride_template_id = template_id
+        AND ride_request_id = request.id
+        AND status IN ('pending', 'shown', 'accepted');
+
+        IF existing_match IS NULL THEN
+            -- Calculate match
+            match_result := calculate_route_match_score(template_id, request.id);
+
+            IF (match_result->>'compatible')::BOOLEAN = true THEN
+                -- Extract scores from result
+                v_route_match_score := (match_result->>'route_match_score')::NUMERIC;
+                v_schedule_match_score := (match_result->>'schedule_match_score')::NUMERIC;
+                v_overall_score := (match_result->>'overall_score')::NUMERIC;
+                v_pickup_distance := (match_result->>'pickup_distance_meters')::NUMERIC;
+                v_drop_distance := (match_result->>'drop_distance_meters')::NUMERIC;
+
+                -- Create match suggestion
+                INSERT INTO match_suggestions (
+                    ride_template_id,
+                    ride_request_id,
+                    route_match_score,
+                    schedule_match_score,
+                    overall_score,
+                    detour_distance_meters,
+                    pickup_distance_meters,
+                    drop_distance_meters,
+                    status
+                ) VALUES (
+                    template_id,
+                    request.id,
+                    v_route_match_score,
+                    v_schedule_match_score,
+                    v_overall_score,
+                    v_pickup_distance,
+                    v_pickup_distance,
+                    v_drop_distance,
+                    'pending'
+                );
+
+                suggestions_created := suggestions_created + 1;
+
+                -- Log match creation
+                PERFORM log_activity(
+                    'INFO',
+                    'generate_match_suggestions_for_ride_template',
+                    'Match suggestion created',
+                    template.host_id,
+                    'match',
+                    NULL,
+                    jsonb_build_object(
+                        'template_id', template_id,
+                        'request_id', request.id,
+                        'overall_score', v_overall_score,
+                        'pickup_distance', v_pickup_distance,
+                        'drop_distance', v_drop_distance
+                    )
+                );
+            END IF;
+        END IF;
+    END LOOP;
+
+    -- Log completion
+    PERFORM log_activity(
+        'INFO',
+        'generate_match_suggestions_for_ride_template',
+        'Match generation completed',
+        template.host_id,
+        'ride_template',
+        template_id,
+        jsonb_build_object(
+            'suggestions_created', suggestions_created
+        )
+    );
+
+    RETURN suggestions_created;
+END;
+$$;
+
+-- Function to generate matches for a new ride request
+CREATE OR REPLACE FUNCTION generate_match_suggestions_for_ride_request(
+    request_id UUID
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    request RECORD;
+    template RECORD;
+    match_result JSON;
+    suggestions_created INTEGER := 0;
+    existing_match UUID;
+    v_route_match_score NUMERIC;
+    v_schedule_match_score NUMERIC;
+    v_overall_score NUMERIC;
+    v_pickup_distance NUMERIC;
+    v_drop_distance NUMERIC;
+BEGIN
+    -- Get the request
+    SELECT * INTO request
+    FROM ride_requests
+    WHERE id = request_id;
+
+    IF NOT FOUND THEN
+        RETURN 0;
+    END IF;
+
+    -- Log request retrieval
+    PERFORM log_activity(
+        'INFO',
+        'generate_match_suggestions_for_ride_request',
+        'Starting match generation for ride request',
+        request.rider_id,
+        'ride_request',
+        request_id,
+        jsonb_build_object(
+            'pickup_location', request.pickup_location,
+            'drop_location', request.drop_location
+        )
+    );
+
+    -- Loop through all active ride templates
+    FOR template IN
+        SELECT * FROM ride_templates
+        WHERE status = 'active'
+        AND host_id != request.rider_id
+    LOOP
+        -- Check if match already exists
+        SELECT id INTO existing_match
+        FROM match_suggestions
+        WHERE ride_template_id = template.id
+        AND ride_request_id = request_id
+        AND status IN ('pending', 'shown', 'accepted');
+
+        IF existing_match IS NULL THEN
+            -- Calculate match
+            match_result := calculate_route_match_score(template.id, request_id);
+
+            IF (match_result->>'compatible')::BOOLEAN = true THEN
+                -- Extract scores from result
+                v_route_match_score := (match_result->>'route_match_score')::NUMERIC;
+                v_schedule_match_score := (match_result->>'schedule_match_score')::NUMERIC;
+                v_overall_score := (match_result->>'overall_score')::NUMERIC;
+                v_pickup_distance := (match_result->>'pickup_distance_meters')::NUMERIC;
+                v_drop_distance := (match_result->>'drop_distance_meters')::NUMERIC;
+
+                -- Create match suggestion
+                INSERT INTO match_suggestions (
+                    ride_template_id,
+                    ride_request_id,
+                    route_match_score,
+                    schedule_match_score,
+                    overall_score,
+                    detour_distance_meters,
+                    pickup_distance_meters,
+                    drop_distance_meters,
+                    status
+                ) VALUES (
+                    template.id,
+                    request_id,
+                    v_route_match_score,
+                    v_schedule_match_score,
+                    v_overall_score,
+                    v_pickup_distance,
+                    v_pickup_distance,
+                    v_drop_distance,
+                    'pending'
+                );
+
+                suggestions_created := suggestions_created + 1;
+
+                -- Log match creation
+                PERFORM log_activity(
+                    'INFO',
+                    'generate_match_suggestions_for_ride_request',
+                    'Match suggestion created',
+                    request.rider_id,
+                    'match',
+                    NULL,
+                    jsonb_build_object(
+                        'template_id', template.id,
+                        'request_id', request_id,
+                        'overall_score', v_overall_score,
+                        'pickup_distance', v_pickup_distance,
+                        'drop_distance', v_drop_distance
+                    )
+                );
+            END IF;
+        END IF;
+    END LOOP;
+
+    -- Log completion
+    PERFORM log_activity(
+        'INFO',
+        'generate_match_suggestions_for_ride_request',
+        'Match generation completed',
+        request.rider_id,
+        'ride_request',
+        request_id,
+        jsonb_build_object(
+            'suggestions_created', suggestions_created
+        )
+    );
+
+    RETURN suggestions_created;
 END;
 $$;

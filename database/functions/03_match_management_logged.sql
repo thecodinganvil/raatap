@@ -1,3 +1,10 @@
+-- =====================================================
+-- MATCH MANAGEMENT FUNCTIONS WITH LOGGING
+-- =====================================================
+-- Drop function first if it exists (to allow parameter name changes)
+DROP FUNCTION IF EXISTS confirm_match_suggestion(uuid, uuid);
+DROP FUNCTION IF EXISTS accept_match_suggestion(uuid, uuid, text);
+
 -- Function for host to accept a match (creates pod) WITH LOGGING
 CREATE OR REPLACE FUNCTION accept_match_suggestion(
     match_id UUID,
@@ -41,13 +48,13 @@ BEGIN
     IF NOT FOUND THEN
         -- Log error: match not found
         PERFORM log_error(
-            'accept_match_suggestion',
-            'Match not found or not accessible',
-            'Match ID not found or user is not the host',
-            host_id,
-            'match',
-            match_id,
-            jsonb_build_object('attempted_pod_name', pod_name)
+            p_function_name := 'accept_match_suggestion',
+            p_action := 'Match not found or not accessible',
+            p_error_message := 'Match ID not found or user is not the host',
+            p_user_id := host_id,
+            p_entity_type := 'match',
+            p_entity_id := match_id,
+            p_details := jsonb_build_object('attempted_pod_name', pod_name)
         );
         
         RETURN json_build_object('success', false, 'error', 'Match not found or not accessible');
@@ -76,13 +83,13 @@ BEGIN
     IF available_seats <= 0 THEN
         -- Log error: no seats available
         PERFORM log_error(
-            'accept_match_suggestion',
-            'No available seats',
-            'All seats are already taken',
-            host_id,
-            'match',
-            match_id,
-            jsonb_build_object(
+            p_function_name := 'accept_match_suggestion',
+            p_action := 'No available seats',
+            p_error_message := 'All seats are already taken',
+            p_user_id := host_id,
+            p_entity_type := 'match',
+            p_entity_id := match_id,
+            p_details := jsonb_build_object(
                 'available_seats', match_record.available_seats,
                 'seats_taken', match_record.seats_taken
             )
@@ -270,13 +277,13 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
     -- Log unexpected error
     PERFORM log_error(
-        'accept_match_suggestion',
-        'Unexpected error accepting match',
-        SQLERRM,
-        host_id,
-        'match',
-        match_id,
-        jsonb_build_object(
+        p_function_name := 'accept_match_suggestion',
+        p_action := 'Unexpected error accepting match',
+        p_error_message := SQLERRM,
+        p_user_id := host_id,
+        p_entity_type := 'match',
+        p_entity_id := match_id,
+        p_details := jsonb_build_object(
             'sql_state', SQLSTATE,
             'pod_name', pod_name
         )
@@ -327,13 +334,13 @@ BEGIN
     IF NOT FOUND THEN
         -- Log error: match not found
         PERFORM log_error(
-            'confirm_match_suggestion',
-            'Match not found or not accessible',
-            'Match not found, not in accepted status, or user is not the rider',
-            rider_id,
-            'match',
-            match_id,
-            jsonb_build_object()
+            p_function_name := 'confirm_match_suggestion',
+            p_action := 'Match not found or not accessible',
+            p_error_message := 'Match not found, not in accepted status, or user is not the rider',
+            p_user_id := rider_id,
+            p_entity_type := 'match',
+            p_entity_id := match_id,
+            p_details := jsonb_build_object()
         );
         
         RETURN json_build_object('success', false, 'error', 'Match not found or not accessible');
@@ -363,13 +370,13 @@ BEGIN
     IF pod_member_id IS NULL THEN
         -- Log error: pod member not found
         PERFORM log_error(
-            'confirm_match_suggestion',
-            'Pod member not found',
-            'No pending pod member found for this match',
-            rider_id,
-            'match',
-            match_id,
-            jsonb_build_object('ride_request_id', match_record.ride_request_id)
+            p_function_name := 'confirm_match_suggestion',
+            p_action := 'Pod member not found',
+            p_error_message := 'No pending pod member found for this match',
+            p_user_id := rider_id,
+            p_entity_type := 'match',
+            p_entity_id := match_id,
+            p_details := jsonb_build_object('ride_request_id', match_record.ride_request_id)
         );
         
         RETURN json_build_object('success', false, 'error', 'Pod member not found');
@@ -473,13 +480,13 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
     -- Log unexpected error
     PERFORM log_error(
-        'confirm_match_suggestion',
-        'Unexpected error confirming match',
-        SQLERRM,
-        rider_id,
-        'match',
-        match_id,
-        jsonb_build_object('sql_state', SQLSTATE)
+        p_function_name := 'confirm_match_suggestion',
+        p_action := 'Unexpected error confirming match',
+        p_error_message := SQLERRM,
+        p_user_id := rider_id,
+        p_entity_type := 'match',
+        p_entity_id := match_id,
+        p_details := jsonb_build_object('sql_state', SQLSTATE)
     );
     
     RETURN json_build_object(

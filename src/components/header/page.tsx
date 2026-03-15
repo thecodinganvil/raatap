@@ -10,10 +10,11 @@ import type { User } from "@supabase/supabase-js";
 export default function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<"host" | "rider" | "both" | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Check auth state
+  // Check auth state and user role
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
 
@@ -22,6 +23,25 @@ export default function Header() {
         data: { session },
       } = await supabase.auth.getSession();
       setUser(session?.user || null);
+
+      // Fetch user role from profiles
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("prefer_hosting, prefer_taking_ride")
+          .eq("id", session.user.id)
+          .single();
+
+        if (profile) {
+          if (profile.prefer_hosting && profile.prefer_taking_ride) {
+            setUserRole("both");
+          } else if (profile.prefer_hosting) {
+            setUserRole("host");
+          } else if (profile.prefer_taking_ride) {
+            setUserRole("rider");
+          }
+        }
+      }
     };
 
     checkUser();
@@ -119,6 +139,13 @@ export default function Header() {
                 </svg>
               </div>
             )}
+
+            {/* Role Badge */}
+            {userRole && (
+              <div className="absolute -top-0.5 -right-0.5 px-1.5 py-0.5 rounded-full bg-[#6675FF] text-white text-[9px] font-semibold shadow-sm">
+                {userRole === "host" ? "H" : userRole === "rider" ? "R" : "B"}
+              </div>
+            )}
           </button>
 
           {/* Dropdown Menu */}
@@ -174,6 +201,35 @@ export default function Header() {
                           <p className="text-sm text-gray-500 truncate">
                             {user.email}
                           </p>
+                          {userRole && (
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                userRole === "host" 
+                                  ? "bg-blue-100 text-blue-700" 
+                                  : userRole === "rider"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-purple-100 text-purple-700"
+                              }`}>
+                                {userRole === "host" && (
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                                  </svg>
+                                )}
+                                {userRole === "rider" && (
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                                {userRole === "both" && (
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                                  </svg>
+                                )}
+                                {userRole === "host" ? "Host" : userRole === "rider" ? "Rider" : "Both"}
+                              </span>
+                            </div>
+                          )}
                         </>
                       ) : (
                         <>
