@@ -146,6 +146,57 @@ export async function getRouteWithWaypoint(
 }
 
 /**
+ * Get full route geometry (LineString) from OSRM
+ * This returns the GeoJSON geometry needed for PostGIS spatial matching
+ */
+export async function getRouteGeometry(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+): Promise<any | null> {
+  const cacheKey = `geometry:${from.lat},${from.lng}-${to.lat},${to.lng}`;
+  
+  // Check cache (reusing the OSRMRoute cache pattern)
+  const cached = getCached(cacheKey);
+  if (cached && cached.geometry) return cached.geometry;
+
+  try {
+    // Request full overview and GeoJSON geometries
+    const url = `${OSRM_SERVER_URL}/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      // Timeout after 5 seconds
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      console.error(`OSRM Geometry API error: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data: OSRMResponse = await response.json();
+
+    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+      console.warn('No route geometry found by OSRM');
+      return null;
+    }
+
+    const route = data.routes[0];
+    
+    // Cache the result
+    setCache(cacheKey, route);
+    
+    return route.geometry;
+  } catch (error) {
+    console.error('Error fetching route geometry from OSRM:', error);
+    return null;
+  }
+}
+
+/**
  * Calculate real detour distance using OSRM
  * 
  * @param from - Host start point (office)

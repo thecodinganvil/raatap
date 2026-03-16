@@ -1,5 +1,5 @@
 -- =================================================================
--- INSTANT MATCHING TRIGGERS
+-- INSTANT MATCHING TRIGGERS FOR OSRM MATCHING
 -- =================================================================
 -- Automatically generates matches when:
 -- 1. New ride template is created (host)
@@ -11,6 +11,7 @@
 -- ================================================================
 -- 1. Trigger: Auto-match when ride template created
 -- ================================================================
+-- When a host creates a ride template, instantly find all compatible riders
 
 CREATE OR REPLACE FUNCTION trigger_auto_match_template()
 RETURNS TRIGGER
@@ -46,6 +47,7 @@ COMMENT ON TRIGGER on_ride_template_created_auto_match ON ride_templates IS
 -- ================================================================
 -- 2. Trigger: Auto-match when ride request created
 -- ================================================================
+-- When a rider creates a ride request, instantly find all compatible hosts
 
 CREATE OR REPLACE FUNCTION trigger_auto_match_request()
 RETURNS TRIGGER
