@@ -230,9 +230,10 @@ export async function POST(req: NextRequest) {
                   console.log("[Admin Verify] No intersecting ride requests found");
                 }
               }
-            } catch (routeError) {
-              console.error("[Admin Verify] Error in route geometry or template creation:", routeError);
             }
+          } catch (routeError) {
+            console.error("[Admin Verify] Error in route geometry or template creation:", routeError);
+          }
         } else {
           console.log("[Admin Verify] ⚠️  Skipping ride_template creation: Missing required profile data");
           console.log("[Admin Verify] - Missing from_lat/from_lng:", !profile.from_lat || !profile.from_lng);
