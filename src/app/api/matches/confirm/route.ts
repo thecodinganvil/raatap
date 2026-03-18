@@ -63,13 +63,24 @@ export async function POST(request: NextRequest) {
     let podId = existingPod?.id;
 
     if (!podId) {
+      // Fetch required fields from ride_template
+      const { data: template } = await supabase
+        .from("ride_templates")
+        .select("host_id, departure_time, from_location, to_location")
+        .eq("id", match.ride_template_id)
+        .single();
+
       // Create new Pod
       console.log("🆕 [API] No Pod found. Creating new Pod...");
       const { data: newPod, error: podCreateError } = await supabase
         .from("pods")
         .insert({
           ride_template_id: match.ride_template_id,
-          status: 'forming'
+          host_id: template?.host_id,
+          departure_time: template?.departure_time,
+          origin_location: template?.from_location,
+          destination_location: template?.to_location,
+          status: 'active'
         })
         .select("id")
         .single();
@@ -83,16 +94,29 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ [API] Pod established: ${podId}. Adding Rider as Pod Member...`);
 
-    // 3. Add Rider to Pod
+    // 3. Fetch ride_request to get all required fields
+    const { data: rideRequest } = await supabase
+      .from("ride_requests")
+      .select("pickup_location, pickup_lat, pickup_lng, pickup_point, pickup_landmark")
+      .eq("id", match.ride_request_id)
+      .single();
+
+    // 4. Add Rider to Pod (schema matches SQL function exactly)
     const { error: memberError } = await supabase
       .from("pod_members")
       .insert({
         pod_id: podId,
         ride_request_id: match.ride_request_id,
         rider_id: riderId,
-        status: 'active', // Since rider is accepting directly, they are active
+        pickup_location: rideRequest?.pickup_location,
+        pickup_lat: rideRequest?.pickup_lat,
+        pickup_lng: rideRequest?.pickup_lng,
+        pickup_point: rideRequest?.pickup_point,
+        pickup_landmark: rideRequest?.pickup_landmark,
+        status: 'active',
         joined_at: new Date().toISOString(),
-        rider_confirmed_at: new Date().toISOString()
+        rider_confirmed_at: new Date().toISOString(),
+        host_approved_at: new Date().toISOString()
       });
 
     if (memberError && memberError.code !== '23505') { // Ignore unique violation if they are already in the pod
@@ -102,7 +126,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ [API] Rider added to Pod. Updating Match status to 'accepted'...`);
 
-    // 4. Update match_suggestion status
+    // 5. Update match_suggestion status
     const { error: updateError } = await supabase
       .from("match_suggestions")
       .update({ 
@@ -113,8 +137,22 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error("❌ [API] Error updating match status to accepted:", updateError);
-      // We don't fail fully here since pod member was added, but it shouldn't happen
     }
+
+    // 6. Increment seats_taken on ride_template
+    const { data: templateData } = await supabase
+      .from("ride_templates")
+      .select("seats_taken")
+      .eq("id", match.ride_template_id)
+      .single();
+
+    const newSeatsTaken = (templateData?.seats_taken || 0) + 1;
+    await supabase
+      .from("ride_templates")
+      .update({ seats_taken: newSeatsTaken })
+      .eq("id", match.ride_template_id);
+
+    console.log(`✅ [API] Updated seats_taken to ${newSeatsTaken}`);
 
     console.log("🎉 [API] Ride successfully confirmed by Rider! Pod Flow complete.");
 
