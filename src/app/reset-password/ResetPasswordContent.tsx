@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -17,7 +17,7 @@ export default function ResetPasswordContent() {
   const [checkingSession, setCheckingSession] = useState(true);
 
   // Check if session exists (set by callback)
-  useState(() => {
+  useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -26,7 +26,7 @@ export default function ResetPasswordContent() {
       setCheckingSession(false);
     };
     checkSession();
-  });
+  }, []);
 
   // Password strength checker
   const getPasswordStrength = (pass: string) => {
