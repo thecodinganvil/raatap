@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
           )
         )
       `)
-      .eq("status", "pending")
+      .in("status", ["pending_host_approval", "pending_rider_approval", "pending"]) // Keep 'pending' for legacy compat temporarily
       .order("overall_score", { ascending: false });
 
     if (error) {
@@ -79,11 +79,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Filter matches where user is either host or rider
+    // Filter matches based on Host-First rules:
+    // Hosts only see 'pending_host_approval' (or legacy 'pending')
+    // Riders ONLY see 'pending_rider_approval'
     const userSuggestions = (suggestions || []).filter(
-      (suggestion: any) => 
-        suggestion.ride_template?.host_id === userId || 
-        suggestion.ride_request?.rider_id === userId
+      (suggestion: any) => {
+        const isHost = suggestion.ride_template?.host_id === userId;
+        const isRider = suggestion.ride_request?.rider_id === userId;
+
+        if (isHost && (suggestion.status === 'pending_host_approval' || suggestion.status === 'pending')) {
+          return true;
+        }
+
+        if (isRider && suggestion.status === 'pending_rider_approval') {
+          return true;
+        }
+
+        return false;
+      }
     );
 
     console.log("📊 [API] Total suggestions:", suggestions?.length || 0);

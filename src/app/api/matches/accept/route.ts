@@ -7,19 +7,13 @@ const supabase = createClient(
 );
 
 /**
- * Accept a match suggestion
- * Replaces backend proxy - now calls Supabase directly
+ * Accept a match suggestion (Host action)
+ * Host-First Architecture: Host accepts -> Status changes to 'pending_rider_approval'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { matchId, hostId, podName } = await request.json();
-    console.log("📥 [API] /api/matches/accept - Request received:", { 
-      matchId, 
-      hostId, 
-      podName,
-      matchIdType: typeof matchId,
-      hostIdType: typeof hostId 
-    });
+    const { matchId, hostId } = await request.json();
+    console.log("📥 [API] /api/matches/accept (Host Approve) - Request received:", { matchId, hostId });
 
     if (!matchId || !hostId) {
       console.error("❌ [API] Missing required fields:", { matchId, hostId });
@@ -29,69 +23,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if function exists first
-    console.log("🔍 [API] Calling accept_match_suggestion RPC...");
-    const { data, error } = await supabase.rpc("accept_match_suggestion", {
-      match_id: matchId,
-      p_host_id: hostId,
-      pod_name: podName || null,
-    });
+    // 1. Verify Match and Host Ownership
+    const { data: match, error: fetchError } = await supabase
+      .from("match_suggestions")
+      .select(`
+        id, 
+        status, 
+        ride_template_id,
+        ride_templates ( host_id )
+      `)
+      .eq("id", matchId)
+      .single();
 
-    console.log("📊 [API] RPC Response:", { 
-      data, 
-      error: error ? { message: error.message, details: error.details, hint: error.hint } : null 
-    });
-
-    if (error) {
-      console.error("❌ [API] Error accepting match:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
-      return NextResponse.json(
-        { 
-          error: error.message, 
-          details: error.details,
-          hint: error.hint,
-          success: false 
-        },
-        { status: 400 }
-      );
+    if (fetchError || !match) {
+      console.error("❌ [API] Error fetching match:", fetchError);
+      return NextResponse.json({ error: "Match not found" }, { status: 404 });
     }
 
-    if (!data) {
-      console.error("❌ [API] No data returned from function");
+    if ((match.ride_templates as any).host_id !== hostId) {
+      console.error("❌ [API] Unauthorized: Host ID mismatch:", { expected: hostId, actual: (match.ride_templates as any).host_id });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    if (match.status !== "pending_host_approval" && match.status !== "pending") {
+      console.error("❌ [API] Invalid match status for host approval:", match.status);
+      return NextResponse.json({ error: "Match is not pending host approval" }, { status: 400 });
+    }
+
+    // 2. Update Status to 'pending_rider_approval'
+    console.log("🔍 [API] Updating match status to 'pending_rider_approval'...");
+    const { error: updateError } = await supabase
+      .from("match_suggestions")
+      .update({ 
+        status: "pending_rider_approval",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", matchId);
+
+    if (updateError) {
+      console.error("❌ [API] Error updating match status:", updateError);
       return NextResponse.json(
-        { error: "No response from database function", success: false },
+        { error: "Failed to update match status", details: updateError.message },
         { status: 500 }
       );
     }
 
-    // Check if function returned success
-    const success = (data as any)?.success;
-    const errorMsg = (data as any)?.error;
-    
-    console.log("📊 [API] Function result:", { success, errorMsg, pod_id: (data as any)?.pod_id });
-
-    if (!success) {
-      console.error("❌ [API] Function returned success=false:", errorMsg);
-      return NextResponse.json(
-        { error: errorMsg || "Failed to accept match", success: false },
-        { status: 400 }
-      );
-    }
-
-    console.log("✅ [API] Match accepted successfully:", {
-      pod_id: (data as any)?.pod_id,
-      match_id: matchId,
-      message: (data as any)?.message
-    });
+    console.log("✅ [API] Match successfully approved by Host.");
 
     return NextResponse.json({
       success: true,
-      message: "Match accepted successfully",
-      data,
+      message: "Match approved. Waiting for Rider to confirm.",
     });
   } catch (error) {
     console.error("❌ [API] Unexpected error:", error);

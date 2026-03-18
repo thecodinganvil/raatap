@@ -1,6 +1,7 @@
 "use client";
 
 import LocationInput from "@/components/LocationInput";
+import RouteSelector from "@/components/RouteSelector";
 import { DAYS, COLLEGES } from "../DashboardContent";
 
 interface ProfileFormStep1Props {
@@ -9,6 +10,9 @@ interface ProfileFormStep1Props {
   errors: Record<string, string>;
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   handleNext: () => void;
+  showRouteSelector?: boolean;
+  setShowRouteSelector?: (show: boolean) => void;
+  onRouteSelect?: (geometry: any) => void;
 }
 
 export default function ProfileFormStep1({
@@ -17,6 +21,9 @@ export default function ProfileFormStep1({
   errors,
   setErrors,
   handleNext,
+  showRouteSelector,
+  setShowRouteSelector,
+  onRouteSelect,
 }: ProfileFormStep1Props) {
   const toggleArrayValue = (field: "days_of_commute", value: string) => {
     setFormData((prev: any) => ({
@@ -235,6 +242,132 @@ export default function ProfileFormStep1({
         )}
       </div>
 
+      {/* Host/Rider Toggle */}
+      <div className="bg-gradient-to-r from-[#6675FF]/5 to-transparent rounded-2xl p-5 border border-[#6675FF]/20">
+        <h3 className="text-sm font-semibold text-[#6675FF] mb-4">
+          You want to
+        </h3>
+        <div className="space-y-3">
+          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-white/50 transition-colors group">
+            <input
+              type="checkbox"
+              checked={formData.prefer_hosting}
+              onChange={(e) => {
+                setFormData((prev: any) => ({
+                  ...prev,
+                  prefer_hosting: e.target.checked,
+                  prefer_taking_ride: e.target.checked ? false : prev.prefer_taking_ride,
+                }));
+                if (errors.preference)
+                  setErrors((prev) => ({ ...prev, preference: "" }));
+              }}
+              className="w-5 h-5 text-[#6675FF] border-2 border-gray-300 rounded focus:ring-2 focus:ring-[#6675FF]/50"
+            />
+            <span className="text-gray-700 font-medium">
+              Host (I have a vehicle & can offer rides)
+            </span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-white/50 transition-colors group">
+            <input
+              type="checkbox"
+              checked={formData.prefer_taking_ride}
+              onChange={(e) => {
+                setFormData((prev: any) => ({
+                  ...prev,
+                  prefer_taking_ride: e.target.checked,
+                  prefer_hosting: e.target.checked ? false : prev.prefer_hosting,
+                }));
+                if (errors.preference)
+                  setErrors((prev) => ({ ...prev, preference: "" }));
+              }}
+              className="w-5 h-5 text-[#6675FF] border-2 border-gray-300 rounded focus:ring-2 focus:ring-[#6675FF]/50"
+            />
+            <span className="text-gray-700 font-medium">
+              Take a ride (I need a ride)
+            </span>
+          </label>
+        </div>
+        {errors.preference && (
+          <p className="text-red-500 text-xs mt-2">{errors.preference}</p>
+        )}
+      </div>
+
+      {/* Vehicle Type - Only for Hosts */}
+      {formData.prefer_hosting && (
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Your Vehicle
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="relative cursor-pointer group">
+              <input
+                type="radio"
+                name="vehicle_type"
+                value="2_wheeler"
+                checked={formData.vehicle_type === "2_wheeler"}
+                onChange={(e) => {
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    vehicle_type: e.target.value,
+                  }));
+                  if (errors.vehicle_type)
+                    setErrors((prev) => ({ ...prev, vehicle_type: "" }));
+                }}
+                className="peer sr-only"
+              />
+              <div
+                className={`p-3 sm:p-4 border-2 rounded-2xl bg-white text-center transition-all peer-checked:border-[#6675FF] peer-checked:bg-[#6675FF]/5 peer-checked:shadow-lg peer-checked:shadow-[#6675FF]/20 hover:border-[#6675FF]/50 ${errors.vehicle_type ? "border-red-300" : "border-gray-200"}`}
+              >
+                <div className="text-xl sm:text-2xl mb-1 sm:mb-2 text-[#6675FF]">
+                  2W
+                </div>
+                <span className="text-gray-700 font-medium text-xs sm:text-sm">
+                  2 Wheeler
+                </span>
+              </div>
+            </label>
+
+            <label className="relative cursor-pointer group">
+              <input
+                type="radio"
+                name="vehicle_type"
+                value="4_wheeler"
+                checked={formData.vehicle_type === "4_wheeler"}
+                onChange={(e) => {
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    vehicle_type: e.target.value,
+                  }));
+                  if (errors.vehicle_type)
+                    setErrors((prev) => ({ ...prev, vehicle_type: "" }));
+                }}
+                className="peer sr-only"
+              />
+              <div
+                className={`p-3 sm:p-4 border-2 rounded-2xl bg-white text-center transition-all peer-checked:border-[#6675FF] peer-checked:bg-[#6675FF]/5 peer-checked:shadow-lg peer-checked:shadow-[#6675FF]/20 hover:border-[#6675FF]/50 ${errors.vehicle_type ? "border-red-300" : "border-gray-200"}`}
+              >
+                <div className="text-xl sm:text-2xl mb-1 sm:mb-2 text-[#6675FF]">
+                  4W
+                </div>
+                <span className="text-gray-700 font-medium text-xs sm:text-sm">
+                  4 Wheeler
+                </span>
+              </div>
+            </label>
+          </div>
+          {errors.vehicle_type && (
+            <p className="text-red-500 text-xs mt-2">{errors.vehicle_type}</p>
+          )}
+        </div>
+      )}
+
+      {/* Rider info */}
+      {formData.prefer_taking_ride && !formData.prefer_hosting && (
+        <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600">
+          You'll be matched with a host going your way. No vehicle needed!
+        </div>
+      )}
+
       {/* Route Section */}
       <div className="bg-gradient-to-r from-[#6675FF]/5 to-transparent rounded-2xl p-5 border border-[#6675FF]/20">
         <h3 className="text-sm font-semibold text-[#6675FF] mb-4 flex items-center gap-2">
@@ -338,7 +471,43 @@ export default function ProfileFormStep1({
             </p>
           )}
         </div>
+
+        {/* Route Selector Button - Only for hosts when locations are set */}
+        {formData.prefer_hosting && formData.from_lat && formData.to_lat && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setShowRouteSelector?.(true)}
+              className="w-full py-3 px-4 bg-[#6675FF]/10 border-2 border-[#6675FF]/30 rounded-xl text-[#6675FF] font-medium hover:bg-[#6675FF]/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+              {formData.route_geometry ? "Change Route" : "Select Your Route"}
+            </button>
+            {formData.route_geometry && (
+              <p className="text-xs text-green-600 mt-2 text-center">
+                ✓ Route selected
+              </p>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Route Selector Modal */}
+      {showRouteSelector && formData.from_lat && formData.to_lat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <RouteSelector
+            from={{ lat: formData.from_lat, lng: formData.from_lng, name: formData.from_location }}
+            to={{ lat: formData.to_lat, lng: formData.to_lng, name: formData.to_location }}
+            onRouteSelect={(geometry) => {
+              onRouteSelect?.(geometry);
+              setShowRouteSelector?.(false);
+            }}
+            onClose={() => setShowRouteSelector?.(false)}
+          />
+        </div>
+      )}
 
       {/* Time Windows */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import LocationInput from "@/components/LocationInput";
+import RouteSelector from "@/components/RouteSelector";
 
 interface FormData {
   // Step 1 fields
@@ -32,6 +33,7 @@ interface FormData {
   comfortable_with: string; // male, female, both
   agreed_to_terms: boolean;
   agreed_to_policies: boolean;
+  route_geometry?: any; // Selected route geometry from route selector
 }
 
 export const COLLEGES = [
@@ -89,6 +91,10 @@ export default function DashboardContent() {
   // State for custom college name when "Other" is selected
   const [customCollege, setCustomCollege] = useState("");
 
+  // State for route selector modal
+  const [showRouteSelector, setShowRouteSelector] = useState(false);
+  const [selectedRouteGeometry, setSelectedRouteGeometry] = useState<any>(null);
+
   const [formData, setFormData] = useState<FormData>({
     full_name: "",
     phone_number: "",
@@ -112,6 +118,7 @@ export default function DashboardContent() {
     comfortable_with: "",
     agreed_to_terms: false,
     agreed_to_policies: false,
+    route_geometry: undefined,
   });
 
   // Helper function to show notifications
@@ -499,6 +506,14 @@ export default function DashboardContent() {
       newErrors.institution = "Please enter your institution name";
     if (!formData.student_id)
       newErrors.student_id = "Student ID is required";
+    // Host/Rider preference
+    if (!formData.prefer_hosting && !formData.prefer_taking_ride) {
+      newErrors.preference = "Select at least one option";
+    }
+    // Vehicle type only required for hosts
+    if (formData.prefer_hosting && !formData.vehicle_type) {
+      newErrors.vehicle_type = "Select your vehicle type";
+    }
     if (!formData.from_location)
       newErrors.from_location = "Start location is required";
     if (!formData.to_location)
@@ -526,11 +541,6 @@ export default function DashboardContent() {
     // Validate step 2 fields
     const newErrors: Record<string, string> = {};
 
-    if (!formData.prefer_hosting && !formData.prefer_taking_ride) {
-      newErrors.preference = "Select at least one preference";
-    }
-    if (!formData.vehicle_type)
-      newErrors.vehicle_type = "Select a vehicle type";
     if (!formData.comfortable_with)
       newErrors.comfortable_with = "Select who you're comfortable with";
     if (!formData.agreed_to_terms)
@@ -702,7 +712,7 @@ export default function DashboardContent() {
           days_of_commute: formData.days_of_commute,
           prefer_hosting: formData.prefer_hosting,
           prefer_taking_ride: formData.prefer_taking_ride,
-          vehicle_type: formData.vehicle_type,
+          vehicle_type: formData.prefer_hosting ? formData.vehicle_type : null,
           comfortable_with: formData.comfortable_with,
           agreed_to_terms: formData.agreed_to_terms,
           email_verified: true,
@@ -729,7 +739,7 @@ export default function DashboardContent() {
       // If user is hosting, create ride template automatically
       if (formData.prefer_hosting) {
         console.log("Creating ride template for host with", availableSeats, "seats");
-        
+
         const rideTemplateResponse = await fetch("/api/rides/templates/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -739,6 +749,7 @@ export default function DashboardContent() {
             availableSeats: availableSeats,
             maxDetourMeters: 2000,
             returnTime: formData.leave_college_time,
+            routeGeometry: selectedRouteGeometry,
           }),
         });
 
@@ -751,6 +762,33 @@ export default function DashboardContent() {
           // Don't block the flow, just log the error
         }
       }
+
+      // If user is taking ride, create ride request automatically
+      if (formData.prefer_taking_ride) {
+        console.log("Creating ride request for rider");
+
+        const rideRequestResponse = await fetch("/api/rides/requests/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user?.id,
+            preferredArrivalTime: formData.leave_college_time,
+            timeFlexibilityMins: 30,
+            vehiclePreference: 'any',
+            genderPreference: formData.comfortable_with || 'both',
+          }),
+        });
+
+        const rideRequestResult = await rideRequestResponse.json();
+
+        if (rideRequestResult.success || rideRequestResult.ride_request_id) {
+          console.log("Ride request created successfully:", rideRequestResult.ride_request_id);
+        } else {
+          console.error("Failed to create ride request:", rideRequestResult.error);
+          // Don't block the flow, just log the error
+        }
+      }
+
       setIsVerified(true);
       setCurrentInstitutionalEmail(institutionalEmail);
       setOtpLoading(false);
@@ -799,7 +837,7 @@ export default function DashboardContent() {
           days_of_commute: formData.days_of_commute,
           prefer_hosting: formData.prefer_hosting,
           prefer_taking_ride: formData.prefer_taking_ride,
-          vehicle_type: formData.vehicle_type,
+          vehicle_type: formData.prefer_hosting ? formData.vehicle_type : null,
           comfortable_with: formData.comfortable_with,
           agreed_to_terms: formData.agreed_to_terms,
           email_verified: false,
@@ -821,7 +859,7 @@ export default function DashboardContent() {
       // If user is hosting, create ride template automatically
       if (formData.prefer_hosting) {
         console.log("Creating ride template for host with", availableSeats, "seats");
-        
+
         const rideTemplateResponse = await fetch("/api/rides/templates/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -831,6 +869,7 @@ export default function DashboardContent() {
             availableSeats: availableSeats,
             maxDetourMeters: 2000,
             returnTime: formData.leave_college_time,
+            routeGeometry: selectedRouteGeometry,
           }),
         });
 
@@ -840,6 +879,32 @@ export default function DashboardContent() {
           console.log("Ride template created successfully:", rideTemplateResult.ride_template_id);
         } else {
           console.error("Failed to create ride template:", rideTemplateResult.error);
+          // Don't block the flow, just log the error
+        }
+      }
+
+      // If user is taking ride, create ride request automatically
+      if (formData.prefer_taking_ride) {
+        console.log("Creating ride request for rider");
+
+        const rideRequestResponse = await fetch("/api/rides/requests/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user?.id,
+            preferredArrivalTime: formData.leave_college_time,
+            timeFlexibilityMins: 30,
+            vehiclePreference: 'any',
+            genderPreference: formData.comfortable_with || 'both',
+          }),
+        });
+
+        const rideRequestResult = await rideRequestResponse.json();
+
+        if (rideRequestResult.success || rideRequestResult.ride_request_id) {
+          console.log("Ride request created successfully:", rideRequestResult.ride_request_id);
+        } else {
+          console.error("Failed to create ride request:", rideRequestResult.error);
           // Don't block the flow, just log the error
         }
       }
@@ -1585,6 +1650,132 @@ export default function DashboardContent() {
                 )}
               </div>
 
+              {/* Host/Rider Toggle */}
+              <div className="bg-gradient-to-r from-[#6675FF]/5 to-transparent rounded-2xl p-5 border border-[#6675FF]/20">
+                <h3 className="text-sm font-semibold text-[#6675FF] mb-4">
+                  You want to
+                </h3>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-white/50 transition-colors group">
+                    <input
+                      type="checkbox"
+                      checked={formData.prefer_hosting}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          prefer_hosting: e.target.checked,
+                          prefer_taking_ride: e.target.checked ? false : prev.prefer_taking_ride,
+                        }));
+                        if (errors.preference)
+                          setErrors((prev) => ({ ...prev, preference: "" }));
+                      }}
+                      className="w-5 h-5 text-[#6675FF] border-2 border-gray-300 rounded focus:ring-2 focus:ring-[#6675FF]/50"
+                    />
+                    <span className="text-gray-700 font-medium">
+                      Host (I have a vehicle & can offer rides)
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-white/50 transition-colors group">
+                    <input
+                      type="checkbox"
+                      checked={formData.prefer_taking_ride}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          prefer_taking_ride: e.target.checked,
+                          prefer_hosting: e.target.checked ? false : prev.prefer_hosting,
+                        }));
+                        if (errors.preference)
+                          setErrors((prev) => ({ ...prev, preference: "" }));
+                      }}
+                      className="w-5 h-5 text-[#6675FF] border-2 border-gray-300 rounded focus:ring-2 focus:ring-[#6675FF]/50"
+                    />
+                    <span className="text-gray-700 font-medium">
+                      Take a ride (I need a ride)
+                    </span>
+                  </label>
+                </div>
+                {errors.preference && (
+                  <p className="text-red-500 text-xs mt-2">{errors.preference}</p>
+                )}
+              </div>
+
+              {/* Vehicle Type - Only for Hosts */}
+              {formData.prefer_hosting && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Your Vehicle
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="relative cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="vehicle_type"
+                        value="2_wheeler"
+                        checked={formData.vehicle_type === "2_wheeler"}
+                        onChange={(e) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            vehicle_type: e.target.value,
+                          }));
+                          if (errors.vehicle_type)
+                            setErrors((prev) => ({ ...prev, vehicle_type: "" }));
+                        }}
+                        className="peer sr-only"
+                      />
+                      <div
+                        className={`p-3 sm:p-4 border-2 rounded-2xl bg-white text-center transition-all peer-checked:border-[#6675FF] peer-checked:bg-[#6675FF]/5 peer-checked:shadow-lg peer-checked:shadow-[#6675FF]/20 hover:border-[#6675FF]/50 ${errors.vehicle_type ? "border-red-300" : "border-gray-200"}`}
+                      >
+                        <div className="text-xl sm:text-2xl mb-1 sm:mb-2 text-[#6675FF]">
+                          2W
+                        </div>
+                        <span className="text-gray-700 font-medium text-xs sm:text-sm">
+                          2 Wheeler
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className="relative cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="vehicle_type"
+                        value="4_wheeler"
+                        checked={formData.vehicle_type === "4_wheeler"}
+                        onChange={(e) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            vehicle_type: e.target.value,
+                          }));
+                          if (errors.vehicle_type)
+                            setErrors((prev) => ({ ...prev, vehicle_type: "" }));
+                        }}
+                        className="peer sr-only"
+                      />
+                      <div
+                        className={`p-3 sm:p-4 border-2 rounded-2xl bg-white text-center transition-all peer-checked:border-[#6675FF] peer-checked:bg-[#6675FF]/5 peer-checked:shadow-lg peer-checked:shadow-[#6675FF]/20 hover:border-[#6675FF]/50 ${errors.vehicle_type ? "border-red-300" : "border-gray-200"}`}
+                      >
+                        <div className="text-xl sm:text-2xl mb-1 sm:mb-2 text-[#6675FF]">
+                          4W
+                        </div>
+                        <span className="text-gray-700 font-medium text-xs sm:text-sm">
+                          4 Wheeler
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                  {errors.vehicle_type && (
+                    <p className="text-red-500 text-xs mt-2">{errors.vehicle_type}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Rider info */}
+              {formData.prefer_taking_ride && !formData.prefer_hosting && (
+                <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600">
+                  You&apos;ll be matched with a host going your way. No vehicle needed!
+                </div>
+              )}
+
               {/* Route Section */}
               <div className="bg-gradient-to-r from-[#6675FF]/5 to-transparent rounded-2xl p-5 border border-[#6675FF]/20">
                 <h3 className="text-sm font-semibold text-[#6675FF] mb-4 flex items-center gap-2">
@@ -1684,6 +1875,27 @@ export default function DashboardContent() {
                     className="w-full px-5 py-3.5 border-2 border-gray-200 rounded-2xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:border-[#6675FF] focus:ring-[#6675FF]/10 transition-all"
                   />
                 </div>
+
+                {/* Route Selector Button - Only for hosts when locations are set */}
+                {formData.prefer_hosting && formData.from_lat && formData.to_lat && (
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowRouteSelector(true)}
+                      className="w-full py-3 px-4 bg-[#6675FF]/10 border-2 border-[#6675FF]/30 rounded-xl text-[#6675FF] font-medium hover:bg-[#6675FF]/20 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                      {selectedRouteGeometry ? "Change Route" : "Select Your Route"}
+                    </button>
+                    {selectedRouteGeometry && (
+                      <p className="text-xs text-green-600 mt-2 text-center">
+                        ✓ Route selected
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Time Windows */}
@@ -1782,132 +1994,25 @@ export default function DashboardContent() {
             </div>
           )}
 
+          {/* Route Selector Modal */}
+          {showRouteSelector && formData.from_lat && formData.to_lat && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+              <RouteSelector
+                from={{ lat: formData.from_lat, lng: formData.from_lng!, name: formData.from_location }}
+                to={{ lat: formData.to_lat, lng: formData.to_lng!, name: formData.to_location }}
+                onRouteSelect={(geometry) => {
+                  setSelectedRouteGeometry(geometry);
+                  setFormData((prev) => ({ ...prev, route_geometry: geometry }));
+                  setShowRouteSelector(false);
+                }}
+                onClose={() => setShowRouteSelector(false)}
+              />
+            </div>
+          )}
+
           {/* Step 2: Preferences */}
           {currentStep === 2 && (
             <div className="space-y-6">
-              {/* You prefer */}
-              <div
-                className={`bg-gradient-to-r from-[#6675FF]/5 to-transparent rounded-2xl p-5 border ${errors.preference ? "border-red-300" : "border-[#6675FF]/20"}`}
-              >
-                <label className="block text-sm font-semibold text-[#6675FF] mb-4">
-                  You prefer
-                </label>
-                <div className="space-y-3">
-                  <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-white/50 transition-colors group">
-                    <input
-                      type="checkbox"
-                      checked={formData.prefer_hosting}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          prefer_hosting: e.target.checked,
-                          prefer_taking_ride: e.target.checked ? false : prev.prefer_taking_ride, // Uncheck other if checking this
-                        }));
-                        if (errors.preference)
-                          setErrors((prev) => ({ ...prev, preference: "" }));
-                      }}
-                      className="w-5 h-5 text-[#6675FF] border-2 border-gray-300 rounded focus:ring-2 focus:ring-[#6675FF]/50"
-                    />
-                    <span className="text-gray-700 font-medium">
-                      Hosting (I have a vehicle)
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-white/50 transition-colors group">
-                    <input
-                      type="checkbox"
-                      checked={formData.prefer_taking_ride}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          prefer_taking_ride: e.target.checked,
-                          prefer_hosting: e.target.checked ? false : prev.prefer_hosting, // Uncheck other if checking this
-                        }));
-                        if (errors.preference)
-                          setErrors((prev) => ({ ...prev, preference: "" }));
-                      }}
-                      className="w-5 h-5 text-[#6675FF] border-2 border-gray-300 rounded focus:ring-2 focus:ring-[#6675FF]/50"
-                    />
-                    <span className="text-gray-700 font-medium">
-                      Taking ride (I need a ride)
-                    </span>
-                  </label>
-                </div>
-                {errors.preference && (
-                  <p className="text-red-500 text-xs mt-2">
-                    {errors.preference}
-                  </p>
-                )}
-              </div>
-
-              {/* Vehicle */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Vehicle Type
-                </label>
-                <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                  <label className="relative cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="vehicle_type"
-                      value="2_wheeler"
-                      checked={formData.vehicle_type === "2_wheeler"}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          vehicle_type: e.target.value,
-                        }));
-                        if (errors.vehicle_type)
-                          setErrors((prev) => ({ ...prev, vehicle_type: "" }));
-                      }}
-                      className="peer sr-only"
-                    />
-                    <div
-                      className={`p-3 sm:p-4 border-2 rounded-2xl bg-white text-center transition-all peer-checked:border-[#6675FF] peer-checked:bg-[#6675FF]/5 peer-checked:shadow-lg peer-checked:shadow-[#6675FF]/20 hover:border-[#6675FF]/50 ${errors.vehicle_type ? "border-red-300" : "border-gray-200"}`}
-                    >
-                      <div className="text-xl sm:text-2xl mb-1 sm:mb-2 text-[#6675FF]">
-                        2W
-                      </div>
-                      <span className="text-gray-700 font-medium text-xs sm:text-sm">
-                        2 Wheeler
-                      </span>
-                    </div>
-                  </label>
-
-                  <label className="relative cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="vehicle_type"
-                      value="4_wheeler"
-                      checked={formData.vehicle_type === "4_wheeler"}
-                      onChange={(e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          vehicle_type: e.target.value,
-                        }));
-                        if (errors.vehicle_type)
-                          setErrors((prev) => ({ ...prev, vehicle_type: "" }));
-                      }}
-                      className="peer sr-only"
-                    />
-                    <div
-                      className={`p-3 sm:p-4 border-2 rounded-2xl bg-white text-center transition-all peer-checked:border-[#6675FF] peer-checked:bg-[#6675FF]/5 peer-checked:shadow-lg peer-checked:shadow-[#6675FF]/20 hover:border-[#6675FF]/50 ${errors.vehicle_type ? "border-red-300" : "border-gray-200"}`}
-                    >
-                      <div className="text-xl sm:text-2xl mb-1 sm:mb-2 text-[#6675FF]">
-                        4W
-                      </div>
-                      <span className="text-gray-700 font-medium text-xs sm:text-sm">
-                        4 Wheeler
-                      </span>
-                    </div>
-                  </label>
-                </div>
-                {errors.vehicle_type && (
-                  <p className="text-red-500 text-xs mt-2">
-                    {errors.vehicle_type}
-                  </p>
-                )}
-              </div>
-
               {/* Comfortable with */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
