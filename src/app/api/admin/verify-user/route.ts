@@ -157,9 +157,18 @@ export async function POST(req: NextRequest) {
                     p_max_detour_meters: 2000
                   });
 
+                // Check seat availability
+                const { data: rideTemplate } = await supabase
+                  .from("ride_templates")
+                  .select("available_seats, seats_taken")
+                  .eq("id", template.id)
+                  .single();
+
+                const remainingSeats = rideTemplate ? (rideTemplate.available_seats - (rideTemplate.seats_taken || 0)) : 0;
+
                 if (matchError) {
                   console.error("[Admin Verify] Error finding spatial matches:", matchError);
-                } else if (matches && matches.length > 0) {
+                } else if (matches && matches.length > 0 && remainingSeats > 0) {
                   console.log(`[Admin Verify] Found ${matches.length} intersecting ride requests`);
                   
                   const suggestionsToInsert = [];
@@ -167,7 +176,7 @@ export async function POST(req: NextRequest) {
                   for (const match of matches) {
                     const { data: riderProfile } = await supabase
                       .from("profiles")
-                      .select("comfortable_with")
+                      .select("comfortable_with, institution")
                       .eq("id", match.rider_id)
                       .single();
 
@@ -177,6 +186,8 @@ export async function POST(req: NextRequest) {
                       destinationDistance: match.destination_distance_meters,
                       hostGenderPreference: profile.comfortable_with || 'both',
                       riderGenderPreference: riderProfile?.comfortable_with || 'both',
+                      hostCollege: profile.institution,
+                      riderCollege: riderProfile?.institution,
                       maxDetourMeters: 2000,
                       maxDestinationMeters: 1000
                     });
@@ -195,28 +206,33 @@ export async function POST(req: NextRequest) {
                     }
                   }
 
-                  if (suggestionsToInsert.length > 0) {
-                    console.log(`[Admin Verify] Inserting ${suggestionsToInsert.length} match suggestions`);
+                  // Sort by score and limit to available seats
+                  suggestionsToInsert.sort((a, b) => b.overall_score - a.overall_score);
+                  const finalSuggestions = suggestionsToInsert.slice(0, remainingSeats);
+
+                  if (finalSuggestions.length > 0) {
+                    console.log(`[Admin Verify] Inserting top ${finalSuggestions.length} match suggestions (host has ${remainingSeats} seats)`);
                     const { error: insertMatchError } = await supabase
                       .from("match_suggestions")
-                      .insert(suggestionsToInsert);
+                      .insert(finalSuggestions);
 
                     if (insertMatchError) {
                       console.error("[Admin Verify] Error inserting match suggestions:", insertMatchError);
                     } else {
-                      console.log(`[Admin Verify] ✅ ${suggestionsToInsert.length} match suggestions created`);
+                      console.log(`[Admin Verify] ✅ ${finalSuggestions.length} match suggestions created`);
                     }
                   } else {
                     console.log("[Admin Verify] No compatible matches found after scoring");
                   }
+                } else if (remainingSeats <= 0) {
+                  console.log("[Admin Verify] Host has no available seats, skipping match suggestions");
                 } else {
                   console.log("[Admin Verify] No intersecting ride requests found");
                 }
               }
+            } catch (routeError) {
+              console.error("[Admin Verify] Error in route geometry or template creation:", routeError);
             }
-          } catch (routeError) {
-            console.error("[Admin Verify] Error in route geometry or template creation:", routeError);
-          }
         } else {
           console.log("[Admin Verify] ⚠️  Skipping ride_template creation: Missing required profile data");
           console.log("[Admin Verify] - Missing from_lat/from_lng:", !profile.from_lat || !profile.from_lng);
@@ -286,7 +302,7 @@ export async function POST(req: NextRequest) {
               for (const match of matches) {
                 const { data: hostProfile } = await supabase
                   .from("profiles")
-                  .select("comfortable_with")
+                  .select("comfortable_with, institution")
                   .eq("id", match.host_id)
                   .single();
 
@@ -296,6 +312,8 @@ export async function POST(req: NextRequest) {
                   destinationDistance: match.destination_distance_meters,
                   hostGenderPreference: hostProfile?.comfortable_with || 'both',
                   riderGenderPreference: profile.comfortable_with || 'both',
+                  hostCollege: hostProfile?.institution,
+                  riderCollege: profile.institution,
                   maxDetourMeters: 2000,
                   maxDestinationMeters: 1000
                 });

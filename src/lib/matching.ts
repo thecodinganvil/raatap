@@ -17,6 +17,7 @@ export interface MatchScoreResult {
   overlap_ratio: number;
   host_route_distance_meters: number;
   host_route_distance_km: number;
+  same_college: boolean;
   reason: string;
 }
 
@@ -26,6 +27,8 @@ export function calculateMatchScore({
   destinationDistance,
   hostGenderPreference,
   riderGenderPreference,
+  hostCollege,
+  riderCollege,
   maxDetourMeters = 2000,
   maxDestinationMeters = 1000,
 }: {
@@ -34,6 +37,8 @@ export function calculateMatchScore({
   destinationDistance: number;
   hostGenderPreference: string;
   riderGenderPreference: string;
+  hostCollege?: string;
+  riderCollege?: string;
   maxDetourMeters?: number;
   maxDestinationMeters?: number;
 }): MatchScoreResult {
@@ -56,6 +61,7 @@ export function calculateMatchScore({
       overlap_ratio: 0,
       host_route_distance_meters: Math.round(hostRouteDistance),
       host_route_distance_km: parseFloat((hostRouteDistance / 1000).toFixed(2)),
+      same_college: false,
       reason: 'Gender preference mismatch'
     };
   }
@@ -74,6 +80,7 @@ export function calculateMatchScore({
       overlap_ratio: 0,
       host_route_distance_meters: Math.round(hostRouteDistance),
       host_route_distance_km: parseFloat((hostRouteDistance / 1000).toFixed(2)),
+      same_college: false,
       reason: `Pickup location too far (>${(pickupDistance/1000).toFixed(2)}km)`
     };
   }
@@ -92,6 +99,7 @@ export function calculateMatchScore({
       overlap_ratio: 0,
       host_route_distance_meters: Math.round(hostRouteDistance),
       host_route_distance_km: parseFloat((hostRouteDistance / 1000).toFixed(2)),
+      same_college: false,
       reason: `Destination too far (>${(destinationDistance/1000).toFixed(2)}km)`
     };
   }
@@ -104,14 +112,23 @@ export function calculateMatchScore({
   overlapRatio = Math.max(0, Math.min(1, overlapRatio));
   const overlappingDistance = hostRouteDistance * overlapRatio;
 
-  // 5. Calculate Match Score
+  // 5. Check if same college
+  const sameCollege = !!(hostCollege && riderCollege && 
+    hostCollege.toLowerCase().trim() === riderCollege.toLowerCase().trim());
+
+  // 6. Calculate Match Score (base 100) + College Bonus (10)
+  const collegeBonus = sameCollege ? 10 : 0;
+  
   let matchScore = (
     (1.0 - (pickupDistance / 2000.0)) * 0.50 +
     (1.0 - (destinationDistance / 1000.0)) * 0.30 +
     overlapRatio * 0.20
   ) * 100;
 
-  matchScore = Math.max(0, Math.min(100, matchScore));
+  // Add college bonus
+  matchScore = matchScore + collegeBonus;
+
+  matchScore = Math.max(0, Math.min(110, matchScore)); // Allow up to 110 with bonus
 
   return {
     compatible: true,
@@ -125,6 +142,7 @@ export function calculateMatchScore({
     overlap_ratio: parseFloat(overlapRatio.toFixed(2)),
     host_route_distance_meters: Math.round(hostRouteDistance),
     host_route_distance_km: parseFloat((hostRouteDistance / 1000).toFixed(2)),
-    reason: 'Compatible route found via API'
+    same_college: sameCollege,
+    reason: sameCollege ? 'Compatible route found (Same College!)' : 'Compatible route found via API'
   };
 }

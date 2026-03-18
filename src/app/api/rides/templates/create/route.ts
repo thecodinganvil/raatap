@@ -14,7 +14,7 @@ const supabase = createClient(
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId, vehicleType, availableSeats, maxDetourMeters = 2000, returnTime } = await request.json();
+    const { userId, vehicleType, availableSeats, maxDetourMeters = 2000, returnTime, routeGeometry } = await request.json();
 
     if (!userId || !vehicleType) {
       return NextResponse.json(
@@ -47,16 +47,22 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Template API] Fetched Host coordinates from profiles table`);
 
-    // 2. Fetch Route Geometry
-    console.log(`[Template API] Requesting Route Geometry from Routing Provider...`);
-    const geometry = await getRouteGeometry(
-      { lat: profile.from_lat, lng: profile.from_lng },
-      { lat: profile.to_lat, lng: profile.to_lng }
-    );
+    // 2. Get Route Geometry - use passed geometry or fetch from OSRM
+    let geometry;
+    if (routeGeometry && routeGeometry.coordinates) {
+      console.log(`[Template API] Using pre-selected route geometry from client`);
+      geometry = routeGeometry;
+    } else {
+      console.log(`[Template API] Requesting Route Geometry from Routing Provider...`);
+      geometry = await getRouteGeometry(
+        { lat: profile.from_lat, lng: profile.from_lng },
+        { lat: profile.to_lat, lng: profile.to_lng }
+      );
 
-    if (!geometry) {
-      console.error("[Template API] Failed to get route geometry");
-      return NextResponse.json({ error: "Failed to calculate route geometry" }, { status: 500 });
+      if (!geometry) {
+        console.error("[Template API] Failed to get route geometry");
+        return NextResponse.json({ error: "Failed to calculate route geometry" }, { status: 500 });
+      }
     }
 
     console.log(`[Template API] Received valid Route Geometry (LineString). Saving to database...`);
@@ -120,16 +126,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, ride_template_id: template.id, message: "Ride created, but matching failed" });
     }
 
-    if (matches && matches.length > 0) {
+    // Check seat availability
+    const { data: rideTemplate } = await supabase
+      .from("ride_templates")
+      .select("available_seats, seats_taken")
+      .eq("id", template.id)
+      .single();
+
+    const remainingSeats = rideTemplate ? (rideTemplate.available_seats - (rideTemplate.seats_taken || 0)) : 0;
+    
+    if (matches && matches.length > 0 && remainingSeats > 0) {
       console.log(`[Template API] Found ${matches.length} overlapping requests. Generating scores...`);
       
       const suggestionsToInsert = [];
 
       for (const match of matches) {
-        // Fetch Rider Profile for gender preference (could also join in the SQL query, but doing it here for simplicity/separation)
+        // Fetch Rider Profile for gender preference and institution
         const { data: riderProfile } = await supabase
           .from("profiles")
-          .select("comfortable_with")
+          .select("comfortable_with, institution")
           .eq("id", match.rider_id)
           .single();
 
@@ -139,6 +154,8 @@ export async function POST(request: NextRequest) {
           destinationDistance: match.destination_distance_meters,
           hostGenderPreference: profile.comfortable_with || 'both',
           riderGenderPreference: riderProfile?.comfortable_with || 'both',
+          hostCollege: profile.institution,
+          riderCollege: riderProfile?.institution,
           maxDetourMeters: maxDetourMeters,
           maxDestinationMeters: 1000
         });
@@ -157,11 +174,16 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (suggestionsToInsert.length > 0) {
+      // Sort by score (highest first) and limit to available seats
+      suggestionsToInsert.sort((a, b) => b.overall_score - a.overall_score);
+      const finalSuggestions = suggestionsToInsert.slice(0, remainingSeats);
+
+      if (finalSuggestions.length > 0) {
+        console.log(`[Template API] Inserting top ${finalSuggestions.length} match suggestions (host has ${remainingSeats} seats)...`);
         console.log(`[Template API] Inserting ${suggestionsToInsert.length} valid match_suggestions pending host approval...`);
         const { error: insertMatchError } = await supabase
           .from("match_suggestions")
-          .insert(suggestionsToInsert);
+          .insert(finalSuggestions);
 
         if (insertMatchError) {
           console.error("[Template API] Error inserting matches:", insertMatchError);
@@ -169,6 +191,8 @@ export async function POST(request: NextRequest) {
       } else {
         console.log(`[Template API] No compatible matches found after scoring.`);
       }
+    } else if (remainingSeats <= 0) {
+      console.log(`[Template API] Host has no available seats, skipping match suggestions.`);
     } else {
       console.log(`[Template API] No intersecting requests found.`);
     }

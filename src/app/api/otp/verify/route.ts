@@ -184,14 +184,23 @@ export async function POST(request: NextRequest) {
                   p_max_detour_meters: 2000
                 });
 
-              if (matches && matches.length > 0) {
+              // Check seat availability
+              const { data: rideTemplate } = await supabase
+                .from("ride_templates")
+                .select("available_seats, seats_taken")
+                .eq("id", template.id)
+                .single();
+
+              const remainingSeats = rideTemplate ? (rideTemplate.available_seats - (rideTemplate.seats_taken || 0)) : 0;
+
+              if (matches && matches.length > 0 && remainingSeats > 0) {
                 console.log(`[OTP Verify] Found ${matches.length} matching ride requests`);
                 
                 const suggestionsToInsert = [];
                 for (const match of matches) {
                   const { data: riderProfile } = await supabase
                     .from("profiles")
-                    .select("comfortable_with")
+                    .select("comfortable_with, institution")
                     .eq("id", match.rider_id)
                     .single();
 
@@ -201,6 +210,8 @@ export async function POST(request: NextRequest) {
                     destinationDistance: match.destination_distance_meters,
                     hostGenderPreference: profile.comfortable_with || 'both',
                     riderGenderPreference: riderProfile?.comfortable_with || 'both',
+                    hostCollege: profile.institution,
+                    riderCollege: riderProfile?.institution,
                     maxDetourMeters: 2000,
                     maxDestinationMeters: 1000
                   });
@@ -219,9 +230,13 @@ export async function POST(request: NextRequest) {
                   }
                 }
 
-                if (suggestionsToInsert.length > 0) {
-                  await supabase.from("match_suggestions").insert(suggestionsToInsert);
-                  console.log(`[OTP Verify] ✅ Created ${suggestionsToInsert.length} match suggestions`);
+                // Sort by score and limit to available seats
+                suggestionsToInsert.sort((a, b) => b.overall_score - a.overall_score);
+                const finalSuggestions = suggestionsToInsert.slice(0, remainingSeats);
+
+                if (finalSuggestions.length > 0) {
+                  await supabase.from("match_suggestions").insert(finalSuggestions);
+                  console.log(`[OTP Verify] ✅ Created ${finalSuggestions.length} match suggestions (host has ${remainingSeats} seats)`);
                 }
               }
             }
@@ -283,9 +298,22 @@ export async function POST(request: NextRequest) {
             
             const suggestionsToInsert = [];
             for (const match of matches) {
+              // Check if host has available seats
+              const { data: hostTemplate } = await supabase
+                .from("ride_templates")
+                .select("available_seats, seats_taken")
+                .eq("id", match.template_id)
+                .single();
+              
+              const remainingSeats = hostTemplate 
+                ? (hostTemplate.available_seats - (hostTemplate.seats_taken || 0)) 
+                : 0;
+
+              if (remainingSeats <= 0) continue; // Skip hosts with no seats
+
               const { data: hostProfile } = await supabase
                 .from("profiles")
-                .select("comfortable_with")
+                .select("comfortable_with, institution")
                 .eq("id", match.host_id)
                 .single();
 
@@ -295,6 +323,8 @@ export async function POST(request: NextRequest) {
                 destinationDistance: match.destination_distance_meters,
                 hostGenderPreference: hostProfile?.comfortable_with || 'both',
                 riderGenderPreference: profile.comfortable_with || 'both',
+                hostCollege: hostProfile?.institution,
+                riderCollege: profile.institution,
                 maxDetourMeters: 2000,
                 maxDestinationMeters: 1000
               });

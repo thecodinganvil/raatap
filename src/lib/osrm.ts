@@ -146,6 +146,44 @@ export async function getRouteWithWaypoint(
 }
 
 /**
+ * Get multiple alternative routes from OSRM
+ * Returns array of routes with geometry, distance, duration
+ */
+export async function getAlternativeRoutes(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+  alternatives: number = 3
+): Promise<{ routes: OSRMRoute[] } | null> {
+  try {
+    const url = `${OSRM_SERVER_URL}/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&alternatives=${alternatives}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      console.error(`OSRM Alternatives API error: ${response.status}`);
+      return null;
+    }
+
+    const data: OSRMResponse = await response.json();
+
+    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+      console.warn('No alternative routes found by OSRM');
+      return null;
+    }
+
+    const result = { routes: data.routes };
+    return result;
+  } catch (error) {
+    console.error('Error fetching alternative routes from OSRM:', error);
+    return null;
+  }
+}
+
+/**
  * Get full route geometry (LineString) from OSRM
  * This returns the GeoJSON geometry needed for PostGIS spatial matching
  */
