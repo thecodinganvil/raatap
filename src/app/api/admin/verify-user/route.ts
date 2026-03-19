@@ -84,7 +84,18 @@ export async function POST(req: NextRequest) {
         console.log(`[Admin Verify] - Has to coordinates: ${!!profile.to_lat && !!profile.to_lng}`);
         console.log(`[Admin Verify] - Has vehicle type: ${!!profile.vehicle_type}`);
 
-        if (profile.from_lat && profile.from_lng && profile.to_lat && profile.to_lng && profile.vehicle_type) {
+        // Check for existing active template (prevent duplicates)
+        const { data: existingTemplate } = await supabase
+          .from("ride_templates")
+          .select("id")
+          .eq("host_id", userId)
+          .eq("status", "active")
+          .single();
+
+        if (existingTemplate) {
+          console.log(`[Admin Verify] Host already has active template: ${existingTemplate.id}. Skipping creation.`);
+          rideType = "host";
+        } else if (profile.from_lat && profile.from_lng && profile.to_lat && profile.to_lng && profile.vehicle_type) {
           try {
             // Get route geometry
             console.log("[Admin Verify] Fetching route geometry from OSRM...");

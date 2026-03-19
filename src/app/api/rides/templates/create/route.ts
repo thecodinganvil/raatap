@@ -79,7 +79,24 @@ export async function POST(request: NextRequest) {
       calculatedSeats = vehicleType === '2_wheeler' ? 1 : (vehicleType === '4_wheeler' ? 3 : 1);
     }
 
-    // 3. Insert Ride Template
+    // 3. Check for existing active ride_template (prevent duplicates)
+    const { data: existingTemplate } = await supabase
+      .from("ride_templates")
+      .select("id")
+      .eq("host_id", userId)
+      .eq("status", "active")
+      .single();
+
+    if (existingTemplate) {
+      console.log(`[Template API] Host already has active template: ${existingTemplate.id}. Skipping creation.`);
+      return NextResponse.json({ 
+        success: true, 
+        ride_template_id: existingTemplate.id, 
+        message: "You already have an active ride template. Please update it instead." 
+      });
+    }
+
+    // 4. Insert Ride Template
     const { data: template, error: insertError } = await supabase
       .from("ride_templates")
       .insert({
