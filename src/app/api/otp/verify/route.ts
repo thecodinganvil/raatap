@@ -108,11 +108,12 @@ export async function POST(request: NextRequest) {
 
     console.log("[OTP Verify] Profile updated");
 
-    // Check if rides already exist
+    // Check if rides already exist (check for active status)
     const { data: existingTemplate } = await supabase
       .from("ride_templates")
       .select("id")
       .eq("host_id", userId)
+      .eq("status", "active")
       .single();
 
     const { data: existingRequest } = await supabase
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
     let rideCreated = false;
     let rideType = "";
 
-    // Create ride_template if user is a host and no template exists
+    // Create ride_template if user is a host and no active template exists
     if (profile.prefer_hosting && !existingTemplate) {
       console.log("[OTP Verify] User is a HOST, creating ride_template");
       

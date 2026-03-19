@@ -124,6 +124,11 @@ export async function POST(request: NextRequest) {
       `✅ [API] Total - Host pods: ${hostPods?.length || 0}, Rider rides: ${riderRides?.length || 0}`
     );
 
+    // Log first pod data to debug
+    if (hostPods && hostPods.length > 0) {
+      console.log("🔍 [API] First pod data:", JSON.stringify(hostPods[0], null, 2));
+    }
+
     return NextResponse.json({
       host_pods: hostPods || [],
       rider_rides: riderRides || [],
