@@ -72,6 +72,7 @@ export default function DashboardContent() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [confirmedPods, setConfirmedPods] = useState<any>(null); // { host_pods: [], rider_rides: [] }
   const [loadingPods, setLoadingPods] = useState(false);
+  const [podsLoadError, setPodsLoadError] = useState(false);
 
   // Notification/Toast state
   const [notification, setNotification] = useState<{
@@ -392,24 +393,41 @@ export default function DashboardContent() {
   const fetchConfirmedPods = async (userId: string) => {
     try {
       setLoadingPods(true);
+      setPodsLoadError(false);
       const response = await fetch("/api/pods/current", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("API Error:", response.status, errorData);
+        setPodsLoadError(true);
+        setConfirmedPods({ host_pods: [], rider_rides: [] });
+        setLoadingPods(false);
+        return { host_pods: [], rider_rides: [] };
+      }
+      
       const data = await response.json();
       
-      if (data.host_pods?.length > 0 || data.rider_rides?.length > 0) {
-        setConfirmedPods(data);
+      if (data.error) {
+        console.error("Data Error:", data.error);
+        setPodsLoadError(true);
+        setConfirmedPods({ host_pods: [], rider_rides: [] });
       } else {
-        setConfirmedPods(null);
+        setPodsLoadError(false);
+        setConfirmedPods(data);
       }
+      
       setLoadingPods(false);
       return data;
     } catch (error) {
       console.error("Error fetching pods:", error);
+      setPodsLoadError(true);
+      setConfirmedPods({ host_pods: [], rider_rides: [] });
       setLoadingPods(false);
-      return null;
+      return { host_pods: [], rider_rides: [] };
     }
   };
 
@@ -478,6 +496,42 @@ export default function DashboardContent() {
       isMounted = false;
     };
   }, [user?.id, submitted]);
+
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured()) return;
+
+    const channel = supabase
+      .channel('pod_members_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pod_members',
+        },
+        (payload) => {
+          console.log('📡 [Dashboard] Pod members changed:', payload);
+          fetchConfirmedPods(user.id);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pods',
+        },
+        (payload) => {
+          console.log('📡 [Dashboard] Pods changed:', payload);
+          fetchConfirmedPods(user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -1552,7 +1606,27 @@ export default function DashboardContent() {
                 </div>
               </div>
             </div>
-          )} {(!confirmedPods?.rider_rides?.length && !confirmedPods?.host_pods?.length && matchSuggestions.length === 0) && (
+          )} {podsLoadError && (
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 p-8 md:p-10 border border-white/50 text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-red-500 to-red-600 flex items-center justify-center">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h1 className="text-2xl font-semibold text-[#171717] mb-3">
+                Unable to load your pods
+              </h1>
+              <p className="text-gray-500 mb-6">
+                There was an error loading your pod data. Please try again.
+              </p>
+              <button
+                onClick={() => user?.id && fetchConfirmedPods(user.id)}
+                className="px-6 py-3 bg-gradient-to-r from-[#6675FF] to-[#8892ff] text-white font-medium rounded-xl hover:from-[#8892ff] hover:to-[#6675FF] transition-all shadow-lg"
+              >
+                Retry
+              </button>
+            </div>
+          )} {(confirmedPods !== null && !podsLoadError && !confirmedPods?.rider_rides?.length && !confirmedPods?.host_pods?.length && matchSuggestions.length === 0) && (
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 p-8 md:p-10 border border-white/50 text-center">
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-[#6675FF] to-[#8892ff] flex items-center justify-center animate-pulse">
                 <svg
