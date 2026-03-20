@@ -95,6 +95,19 @@ export default function DashboardContent() {
   const [showRouteSelector, setShowRouteSelector] = useState(false);
   const [selectedRouteGeometry, setSelectedRouteGeometry] = useState<any>(null);
 
+  // Leave Pod Modal State
+  const [showLeavePodModal, setShowLeavePodModal] = useState(false);
+  const [selectedPodMemberId, setSelectedPodMemberId] = useState<string | null>(null);
+  const [leaveReason, setLeaveReason] = useState("");
+  const [willingToRejoin, setWillingToRejoin] = useState(true);
+  const [leavingPod, setLeavingPod] = useState(false);
+
+  // Dismiss Rider Modal State
+  const [showDismissModal, setShowDismissModal] = useState(false);
+  const [selectedDismissMemberId, setSelectedDismissMemberId] = useState<string | null>(null);
+  const [dismissReason, setDismissReason] = useState("");
+  const [dismissingRider, setDismissingRider] = useState(false);
+
   const [formData, setFormData] = useState<FormData>({
     full_name: "",
     phone_number: "",
@@ -295,6 +308,84 @@ export default function DashboardContent() {
     } catch (error) {
       console.error("Error rejecting ride:", error);
       showNotification('error', 'Error rejecting ride. Please try again.');
+    }
+  };
+
+  const handleLeavePod = async () => {
+    if (!selectedPodMemberId || !user?.id || !leaveReason) {
+      showNotification('error', 'Please select a reason for leaving');
+      return;
+    }
+
+    setLeavingPod(true);
+    try {
+      const response = await fetch("/api/pods/leave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          podMemberId: selectedPodMemberId,
+          userId: user.id,
+          reason: leaveReason,
+          willingToRejoin: willingToRejoin
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        showNotification('success', 'You have left the pod');
+        setShowLeavePodModal(false);
+        setLeaveReason("");
+        setWillingToRejoin(true);
+        setSelectedPodMemberId(null);
+        // Refresh pods
+        fetchConfirmedPods(user.id);
+      } else {
+        showNotification('error', data.error || 'Failed to leave pod');
+      }
+    } catch (error) {
+      console.error("Error leaving pod:", error);
+      showNotification('error', 'Error leaving pod. Please try again.');
+    } finally {
+      setLeavingPod(false);
+    }
+  };
+
+  const handleDismissRider = async () => {
+    if (!selectedDismissMemberId || !user?.id || !dismissReason) {
+      showNotification('error', 'Please select a reason for dismissing');
+      return;
+    }
+
+    setDismissingRider(true);
+    try {
+      const response = await fetch("/api/pods/dismiss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          podMemberId: selectedDismissMemberId,
+          hostId: user.id,
+          reason: dismissReason
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        showNotification('success', 'Rider has been removed from the pod');
+        setShowDismissModal(false);
+        setDismissReason("");
+        setSelectedDismissMemberId(null);
+        // Refresh pods
+        fetchConfirmedPods(user.id);
+      } else {
+        showNotification('error', data.error || 'Failed to dismiss rider');
+      }
+    } catch (error) {
+      console.error("Error dismissing rider:", error);
+      showNotification('error', 'Error dismissing rider. Please try again.');
+    } finally {
+      setDismissingRider(false);
     }
   };
 
@@ -1188,19 +1279,19 @@ export default function DashboardContent() {
                            </div>
                            
                            {pod.pod_members?.length > 0 ? (
-                             <div className="space-y-3">
-                               {pod.pod_members.map((member: any) => (
-                                 <div key={member.id} className="relative p-4 border border-gray-100 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
-                                   <div className="flex items-center gap-3 mb-3">
-                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white font-bold">
-                                       {member.profiles?.full_name?.charAt(0) || "R"}
-                                     </div>
-                                     <div>
-                                       <p className="font-semibold text-gray-800">{member.profiles?.full_name || "Rider"}</p>
-                                       <div className="flex items-center gap-2 text-xs text-gray-500">
-                                          <span className={`px-2 py-0.5 rounded-full ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                            {member.status === 'active' ? 'Confirmed' : member.status}
-                                          </span>
+                              <div className="space-y-3">
+                                {pod.pod_members.map((member: any) => (
+                                  <div key={member.id} className="relative p-4 border border-gray-100 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex items-center gap-3 mb-3">
+                                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white font-bold">
+                                        {member.profiles?.full_name?.charAt(0) || "R"}
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold text-gray-800">{member.profiles?.full_name || "Rider"}</p>
+                                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                                           <span className={`px-2 py-0.5 rounded-full ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                             {member.status === 'active' ? 'Confirmed' : member.status}
+                                           </span>
                                         </div>
                                       </div>
                                       <div className="ml-auto flex items-center gap-2">
@@ -1208,6 +1299,16 @@ export default function DashboardContent() {
                                         <a href={`tel:${member.profiles?.phone_number}`} className="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded-full hover:bg-[#6675FF] hover:text-white transition-colors">
                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                                         </a>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedDismissMemberId(member.id);
+                                            setShowDismissModal(true);
+                                          }}
+                                          className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
+                                          title="Remove rider"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                        </button>
                                       </div>
                                     </div>
                                     
@@ -1291,23 +1392,34 @@ export default function DashboardContent() {
                           </div>
                         )}
 
-                         <div className="grid grid-cols-2 gap-3">
-                           <div className="p-3 bg-[#6675FF]/10 rounded-xl">
-                             <p className="text-xs text-[#6675FF] font-semibold uppercase mb-1">Pickup</p>
-                             <p className="text-gray-700 text-sm font-medium">{ride.pickup_location}</p>
-                           </div>
-                           <div className="p-3 bg-[#4d5ce6]/10 rounded-xl">
-                             <p className="text-xs text-[#4d5ce6] font-semibold uppercase mb-1">Time</p>
-                             <p className="text-gray-700 text-sm font-medium">{ride.pod?.ride_template?.departure_time}</p>
-                           </div>
-                         </div>
-                       </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 bg-[#6675FF]/10 rounded-xl">
+                              <p className="text-xs text-[#6675FF] font-semibold uppercase mb-1">Pickup</p>
+                              <p className="text-gray-700 text-sm font-medium">{ride.pickup_location}</p>
+                            </div>
+                            <div className="p-3 bg-[#4d5ce6]/10 rounded-xl">
+                              <p className="text-xs text-[#4d5ce6] font-semibold uppercase mb-1">Time</p>
+                              <p className="text-gray-700 text-sm font-medium">{ride.pod?.ride_template?.departure_time}</p>
+                            </div>
+                          </div>
+
+                          {/* Leave Pod Button */}
+                          <button
+                            onClick={() => {
+                              setSelectedPodMemberId(ride.id);
+                              setShowLeavePodModal(true);
+                            }}
+                            className="w-full mt-4 py-2 px-4 bg-red-50 border border-red-200 text-red-600 font-medium rounded-xl hover:bg-red-100 transition-colors"
+                          >
+                            Leave Pod
+                          </button>
+                        </div>
                      ))}
                    </div>
                  )}
                </div>
             </div>
-          )} {matchSuggestions.length > 0 && (!confirmedPods?.rider_rides?.length) && (
+          )}           {matchSuggestions.length > 0 && (!confirmedPods?.rider_rides?.length) && (
             <MatchQueue 
               matchSuggestions={matchSuggestions}
               onAcceptMatch={handleAcceptMatch}
@@ -1316,6 +1428,130 @@ export default function DashboardContent() {
               onRejectMatch={handleRejectMatch}
               user={user}
             />
+          )}
+
+          {/* Leave Pod Modal */}
+          {showLeavePodModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="bg-gradient-to-r from-red-500 to-red-600 p-4 text-white">
+                  <h3 className="text-lg font-semibold">Leave Pod</h3>
+                  <p className="text-sm text-red-100">We're sorry to see you go</p>
+                </div>
+                
+                <div className="p-6 space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Why are you leaving?
+                    </label>
+                    <select
+                      value={leaveReason}
+                      onChange={(e) => setLeaveReason(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none"
+                    >
+                      <option value="">Select a reason</option>
+                      <option value="schedule_conflict">Schedule conflict</option>
+                      <option value="host_no_show">Host didn't show up</option>
+                      <option value="host_behavior">Host behavior issue</option>
+                      <option value="other">Other reason</option>
+                    </select>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-xl">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={willingToRejoin}
+                        onChange={(e) => setWillingToRejoin(e.target.checked)}
+                        className="w-5 h-5 text-red-500 border-gray-300 rounded focus:ring-red-400"
+                      />
+                      <div>
+                        <p className="font-medium text-gray-700">Would you join this pod again?</p>
+                        <p className="text-xs text-gray-500">This helps us improve matching</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => {
+                        setShowLeavePodModal(false);
+                        setLeaveReason("");
+                        setWillingToRejoin(true);
+                        setSelectedPodMemberId(null);
+                      }}
+                      className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
+                      disabled={leavingPod}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleLeavePod}
+                      className="flex-1 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium rounded-xl transition-all shadow-lg shadow-red-500/30 disabled:opacity-50"
+                      disabled={!leaveReason || leavingPod}
+                    >
+                      {leavingPod ? "Leaving..." : "Leave Pod"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Dismiss Rider Modal */}
+          {showDismissModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-4 text-white">
+                  <h3 className="text-lg font-semibold">Remove Rider</h3>
+                  <p className="text-sm text-orange-100">This will remove the rider from your pod</p>
+                </div>
+                
+                <div className="p-6 space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Reason for removal
+                    </label>
+                    <select
+                      value={dismissReason}
+                      onChange={(e) => setDismissReason(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none"
+                    >
+                      <option value="">Select a reason</option>
+                      <option value="rider_no_show">Rider didn't show up</option>
+                      <option value="rider_behavior">Rider behavior issue</option>
+                      <option value="seat_unavailable">Seat no longer available</option>
+                      <option value="other">Other reason</option>
+                    </select>
+                  </div>
+
+                  <p className="text-sm text-gray-500 bg-amber-50 p-3 rounded-lg">
+                    The rider will be notified and can be matched with other hosts.
+                  </p>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => {
+                        setShowDismissModal(false);
+                        setDismissReason("");
+                        setSelectedDismissMemberId(null);
+                      }}
+                      className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
+                      disabled={dismissingRider}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDismissRider}
+                      className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-xl transition-all shadow-lg shadow-orange-500/30 disabled:opacity-50"
+                      disabled={!dismissReason || dismissingRider}
+                    >
+                      {dismissingRider ? "Removing..." : "Remove Rider"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )} {(!confirmedPods?.rider_rides?.length && !confirmedPods?.host_pods?.length && matchSuggestions.length === 0) && (
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 p-8 md:p-10 border border-white/50 text-center">
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-[#6675FF] to-[#8892ff] flex items-center justify-center animate-pulse">

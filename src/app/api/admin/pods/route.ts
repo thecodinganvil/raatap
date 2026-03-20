@@ -7,10 +7,12 @@ const supabase = createClient(
 );
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
   try {
     console.log("API [admin/pods] Fetching all pods...");
 
     // Fetch all active pods with their members
+    console.log("API [admin/pods] Querying pods table...");
     const { data: pods, error: podsError } = await supabase
       .from("pods")
       .select(`
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
           departure_time,
           available_seats,
           seats_taken,
-          days_active
+          days_available
         ),
         profiles (
           full_name,
@@ -44,6 +46,8 @@ export async function GET(request: NextRequest) {
       .eq("status", "active")
       .order("created_at", { ascending: false });
 
+    console.log(`API [admin/pods] Pods query completed. Error: ${podsError ? podsError.message : 'none'}, Count: ${pods?.length || 0}`);
+
     if (podsError) {
       console.error("Error fetching pods:", podsError);
       return NextResponse.json(
@@ -52,108 +56,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Also fetch pods from match_suggestions (virtual pods for accepted but not yet confirmed matches)
-    const { data: acceptedMatches, error: matchesError } = await supabase
-      .from("match_suggestions")
-      .select(`
-        *,
-        ride_templates (
-          id,
-          vehicle_type,
-          from_location,
-          to_location,
-          departure_time,
-          days_active,
-          profiles (
-            full_name,
-            phone_number,
-            gender
-          )
-        ),
-        ride_requests (
-          id,
-          rider_id,
-          pickup_location,
-          profiles (
-            full_name,
-            phone_number,
-            gender
-          )
-        )
-      `)
-      .in("status", ["accepted", "confirmed"]);
-
-    if (matchesError) {
-      console.error("Error fetching accepted matches:", matchesError);
-    }
-
     // Format pods data
-    const formattedPods = (pods || []).map((pod: any) => ({
-      id: pod.id,
-      host_name: pod.profiles?.full_name || "Host",
-      host_phone: pod.profiles?.phone_number,
-      vehicle_type: pod.ride_templates?.vehicle_type || "4_wheeler",
-      from_location: pod.ride_templates?.from_location || pod.origin_location,
-      to_location: pod.ride_templates?.to_location || pod.destination_location,
-      departure_time: pod.ride_templates?.departure_time || pod.departure_time,
-      days_active: pod.ride_templates?.days_active || pod.days_active,
-      available_seats: pod.ride_templates?.available_seats || pod.available_seats,
-      seats_taken: pod.ride_templates?.seats_taken || pod.pod_members?.length || 0,
-      status: pod.status,
-      members: (pod.pod_members || []).map((member: any) => ({
-        rider_id: member.rider_id,
-        rider_name: member.profiles?.full_name || "Rider",
-        phone_number: member.profiles?.phone_number,
-        pickup_location: member.ride_requests?.pickup_location || "N/A",
-        status: member.status,
-      })),
-    }));
+    console.log("API [admin/pods] Formatting pods data...");
+    const formattedPods = (pods || []).map((pod: any) => {
+      const podMembers = pod.pod_members || [];
+      const formatted = {
+        id: pod.id,
+        host_name: pod.profiles?.full_name || "Host",
+        host_phone: pod.profiles?.phone_number,
+        vehicle_type: pod.ride_templates?.vehicle_type || "4_wheeler",
+        from_location: pod.ride_templates?.from_location || pod.origin_location,
+        to_location: pod.ride_templates?.to_location || pod.destination_location,
+        departure_time: pod.ride_templates?.departure_time || pod.departure_time,
+        days_available: pod.ride_templates?.days_available || pod.days_active,
+        available_seats: pod.ride_templates?.available_seats || pod.available_seats,
+        seats_taken: pod.ride_templates?.seats_taken || podMembers.length || 0,
+        status: pod.status,
+        members: podMembers.map((member: any) => ({
+          rider_id: member.rider_id,
+          rider_name: member.profiles?.full_name || "Rider",
+          phone_number: member.profiles?.phone_number,
+          pickup_location: member.ride_requests?.pickup_location || "N/A",
+          status: member.status,
+        })),
+      };
+      return formatted;
+    });
 
-    // Add virtual pods from accepted matches (not yet in pods table)
-    if (acceptedMatches && acceptedMatches.length > 0) {
-      const virtualPodsMap = new Map();
+    console.log(`API [admin/pods] Formatted ${formattedPods.length} pods from database`);
 
-      acceptedMatches.forEach((match: any) => {
-        const templateId = match.ride_template_id;
-        
-        if (!virtualPodsMap.has(templateId)) {
-          virtualPodsMap.set(templateId, {
-            id: `virtual_${templateId}`,
-            host_name: match.ride_templates?.profiles?.full_name || "Host",
-            vehicle_type: match.ride_templates?.vehicle_type || "4_wheeler",
-            from_location: match.ride_templates?.from_location,
-            to_location: match.ride_templates?.to_location,
-            departure_time: match.ride_templates?.departure_time,
-            days_active: match.ride_templates?.days_active,
-            available_seats: match.ride_templates?.available_seats || 4,
-            seats_taken: 0,
-            status: "matching",
-            members: [],
-          });
-        }
-
-        const virtualPod = virtualPodsMap.get(templateId);
-        if (match.ride_requests) {
-          virtualPod.members.push({
-            rider_id: match.ride_requests.rider_id,
-            rider_name: match.ride_requests.profiles?.full_name || "Rider",
-            phone_number: match.ride_requests.profiles?.phone_number,
-            pickup_location: match.ride_requests.pickup_location || "N/A",
-            status: match.status,
-          });
-          virtualPod.seats_taken = virtualPod.members.length;
-        }
-      });
-
-      const virtualPods = Array.from(virtualPodsMap.values());
-      formattedPods.push(...virtualPods);
-    }
-
-    console.log(`API [admin/pods] Found ${formattedPods.length} pods`);
+    const totalTime = Date.now() - startTime;
+    console.log(`API [admin/pods] Completed successfully. Total pods: ${formattedPods.length}, Time: ${totalTime}ms`);
 
     return NextResponse.json({ pods: formattedPods });
   } catch (error: any) {
-    console.error("Unexpected error fetching pods:", error);
+    const totalTime = Date.now() - startTime;
+    console.error(`API [admin/pods] Unexpected error after ${totalTime}ms:`, error);
+    console.error("API [admin/pods] Error stack:", error?.stack);
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

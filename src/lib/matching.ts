@@ -5,6 +5,8 @@
  * Replaces the deprecated `calculate_route_match_score` PL/pgSQL function.
  */
 
+import { createClient } from "@supabase/supabase-js";
+
 export interface MatchScoreResult {
   compatible: boolean;
   match_score: number;
@@ -19,6 +21,41 @@ export interface MatchScoreResult {
   host_route_distance_km: number;
   same_college: boolean;
   reason: string;
+  blocked?: boolean;
+  blockReason?: string;
+}
+
+/**
+ * Check if a host-rider pair has a red flag that blocks matching
+ */
+export async function checkRedFlag(
+  supabase: any,
+  hostId: string,
+  riderId: string
+): Promise<{ hasRedFlag: boolean; reason?: string }> {
+  try {
+    const { data, error } = await supabase
+      .from("host_behavior_flags")
+      .select("reason")
+      .eq("host_id", hostId)
+      .eq("rider_id", riderId)
+      .eq("flag_type", "red")
+      .is("resolved_at", null)
+      .single();
+
+    if (error && error.code !== "PGRST116") { // Not "no rows returned"
+      console.error("Error checking red flags:", error);
+      return { hasRedFlag: false };
+    }
+
+    return {
+      hasRedFlag: !!data,
+      reason: data?.reason
+    };
+  } catch (err) {
+    console.error("Exception checking red flags:", err);
+    return { hasRedFlag: false };
+  }
 }
 
 export function calculateMatchScore({

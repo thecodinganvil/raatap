@@ -139,20 +139,38 @@ export async function POST(request: NextRequest) {
       console.error("❌ [API] Error updating match status to accepted:", updateError);
     }
 
-    // 6. Increment seats_taken on ride_template
-    const { data: templateData } = await supabase
+    // 6. Increment seats_taken on ride_template (atomic update - prevents race condition)
+    const { data: templateData, error: templateError } = await supabase
       .from("ride_templates")
-      .select("seats_taken")
+      .select("seats_taken, available_seats")
       .eq("id", match.ride_template_id)
+      .eq("status", "active")
       .single();
 
-    const newSeatsTaken = (templateData?.seats_taken || 0) + 1;
-    await supabase
-      .from("ride_templates")
-      .update({ seats_taken: newSeatsTaken })
-      .eq("id", match.ride_template_id);
+    if (templateError || !templateData) {
+      console.error("❌ [API] Error fetching template:", templateError);
+      return NextResponse.json({ error: "Ride not found" }, { status: 400 });
+    }
 
-    console.log(`✅ [API] Updated seats_taken to ${newSeatsTaken}`);
+    if (templateData.seats_taken >= templateData.available_seats) {
+      console.error("❌ [API] No available seats");
+      return NextResponse.json({ error: "No available seats" }, { status: 400 });
+    }
+
+    const { data: updated, error: seatsError } = await supabase
+      .from("ride_templates")
+      .update({ seats_taken: templateData.seats_taken + 1 })
+      .eq("id", match.ride_template_id)
+      .eq("seats_taken", templateData.seats_taken)
+      .select("id")
+      .single();
+
+    if (seatsError || !updated) {
+      console.error("❌ [API] Seat was already taken (race condition):", seatsError);
+      return NextResponse.json({ error: "Seat no longer available" }, { status: 400 });
+    }
+
+    console.log(`✅ [API] Updated seats_taken to ${templateData.seats_taken + 1}`);
 
     console.log("🎉 [API] Ride successfully confirmed by Rider! Pod Flow complete.");
 
