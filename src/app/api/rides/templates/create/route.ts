@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getRouteGeometry } from "@/lib/osrm";
-import { calculateMatchScore } from "@/lib/matching";
+import { calculateMatchScore, checkRedFlag } from "@/lib/matching";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -164,6 +164,13 @@ export async function POST(request: NextRequest) {
           .select("comfortable_with, institution")
           .eq("id", match.rider_id)
           .single();
+
+        // Check for red flags - skip if blocked
+        const { hasRedFlag, reason: blockReason } = await checkRedFlag(supabase as any, userId, match.rider_id);
+        if (hasRedFlag) {
+          console.log(`[Template API] Skipping rider ${match.rider_id} - red flag (${blockReason})`);
+          continue;
+        }
 
         const score = calculateMatchScore({
           hostRouteDistance: match.host_route_distance_meters,
