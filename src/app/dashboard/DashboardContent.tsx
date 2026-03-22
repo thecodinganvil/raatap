@@ -1678,40 +1678,6 @@ export default function DashboardContent() {
               </div>
             </div>
           )}
-          
-          {/* Fallback: If nothing else rendered, show the empty state (safety net) */}
-          {!confirmedPods?.host_pods?.length && !confirmedPods?.rider_rides?.length && matchSuggestions.length === 0 && !loadingPods && (
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 p-8 md:p-10 border border-white/50 text-center">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-[#6675FF] to-[#8892ff] flex items-center justify-center animate-pulse">
-                <svg
-                  className="w-10 h-10 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-semibold text-[#171717] mb-3">
-                Welcome, {formData.full_name || 'Rider'}!
-              </h1>
-              <p className="text-gray-500 mb-6">
-                Your profile is set up. We&apos;ll notify you when we find matches for your route.
-              </p>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6675FF]/10 text-[#6675FF] rounded-full text-sm font-medium">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8892ff] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-[#6675FF]"></span>
-                </span>
-                Ready for matching...
-              </div>
-            </div>
-          )}
         </div>
       </main>
     );
