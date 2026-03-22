@@ -876,8 +876,11 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-gray-600">{pod.members?.length || 0} Riders</p>
+                        <p className="text-sm font-medium text-gray-600">{pod.member_counts?.active || 0} Active</p>
                         <p className="text-xs text-gray-400">{pod.seats_taken || 0}/{pod.available_seats || pod.max_seats || 4} Seats filled</p>
+                        {pod.member_counts?.total > 0 && (
+                          <p className="text-xs text-gray-400">Total: {pod.member_counts.total}</p>
+                        )}
                       </div>
                     </div>
 
@@ -900,22 +903,64 @@ export default function AdminDashboard() {
                       <div className="border-t border-gray-100 pt-4">
                         <p className="text-sm font-semibold text-gray-700 mb-3">Pod Members:</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {pod.members.map((member: any, idx: number) => (
-                            <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xs font-bold">
-                                {member.rider_name?.charAt(0) || 'R'}
+                          {pod.members.map((member: any, idx: number) => {
+                            const statusConfig: Record<string, { color: string; bgColor: string; label: string }> = {
+                              active: { color: 'text-green-700', bgColor: 'bg-green-100', label: 'Active' },
+                              pending_host: { color: 'text-amber-700', bgColor: 'bg-amber-100', label: 'Pending Host' },
+                              pending_rider: { color: 'text-amber-700', bgColor: 'bg-amber-100', label: 'Pending Rider' },
+                              dismissed: { color: 'text-red-700', bgColor: 'bg-red-100', label: 'Dismissed' },
+                              left: { color: 'text-gray-700', bgColor: 'bg-gray-100', label: 'Left' },
+                            };
+                            const status = statusConfig[member.status] || { color: 'text-gray-700', bgColor: 'bg-gray-100', label: member.status || 'Unknown' };
+                            
+                            return (
+                              <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-xs font-bold">
+                                  {member.rider_name?.charAt(0) || 'R'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-800 truncate">{member.rider_name || 'Rider'}</p>
+                                  <p className="text-xs text-gray-500">{member.pickup_location || 'N/A'}</p>
+                                  <span className={`inline-flex mt-1 px-2 py-0.5 text-[10px] font-medium rounded-full ${status.color} ${status.bgColor}`}>
+                                    {status.label}
+                                  </span>
+                                </div>
+                                <a href={`tel:${member.phone_number}`} className="w-8 h-8 flex items-center justify-center bg-green-100 text-green-600 rounded-full hover:bg-green-200 transition-colors">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                  </svg>
+                                </a>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-800 truncate">{member.rider_name || 'Rider'}</p>
-                                <p className="text-xs text-gray-500">{member.pickup_location || 'N/A'}</p>
-                              </div>
-                              <a href={`tel:${member.phone_number}`} className="w-8 h-8 flex items-center justify-center bg-green-100 text-green-600 rounded-full hover:bg-green-200 transition-colors">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                </svg>
-                              </a>
-                            </div>
-                          ))}
+                            );
+                          })}
+                        </div>
+                        {/* Status Summary */}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {pod.member_counts?.active > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full text-white bg-green-500">
+                              Active: {pod.member_counts.active}
+                            </span>
+                          )}
+                          {pod.member_counts?.pending_host > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full text-white bg-amber-500">
+                              Pending Host: {pod.member_counts.pending_host}
+                            </span>
+                          )}
+                          {pod.member_counts?.pending_rider > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full text-white bg-amber-500">
+                              Pending Rider: {pod.member_counts.pending_rider}
+                            </span>
+                          )}
+                          {pod.member_counts?.dismissed > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full text-white bg-red-500">
+                              Dismissed: {pod.member_counts.dismissed}
+                            </span>
+                          )}
+                          {pod.member_counts?.left > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full text-white bg-gray-500">
+                              Left: {pod.member_counts.left}
+                            </span>
+                          )}
                         </div>
                       </div>
                     )}
