@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     console.log("API [admin/pods] Fetching all pods...");
 
-    // Fetch all active pods with their members
+    // Fetch all active pods with their members (including dismissed/left for admin visibility)
     console.log("API [admin/pods] Querying pods table...");
     const { data: pods, error: podsError } = await supabase
       .from("pods")
@@ -59,7 +59,13 @@ export async function GET(request: NextRequest) {
     // Format pods data
     console.log("API [admin/pods] Formatting pods data...");
     const formattedPods = (pods || []).map((pod: any) => {
-      const podMembers = pod.pod_members || [];
+      const allMembers = pod.pod_members || [];
+      
+      // Count ACTIVE members only for seats_taken
+      const activeMembers = allMembers.filter(
+        (m: any) => m.status === 'active'
+      );
+      
       const formatted = {
         id: pod.id,
         host_name: pod.profiles?.full_name || "Host",
@@ -70,15 +76,26 @@ export async function GET(request: NextRequest) {
         departure_time: pod.ride_templates?.departure_time || pod.departure_time,
         days_available: pod.ride_templates?.days_available || pod.days_active,
         available_seats: pod.ride_templates?.available_seats || pod.available_seats,
-        seats_taken: pod.ride_templates?.seats_taken || podMembers.length || 0,
+        seats_taken: activeMembers.length, // Only count active members
         status: pod.status,
-        members: podMembers.map((member: any) => ({
+        members: allMembers.map((member: any) => ({
           rider_id: member.rider_id,
           rider_name: member.profiles?.full_name || "Rider",
           phone_number: member.profiles?.phone_number,
           pickup_location: member.ride_requests?.pickup_location || "N/A",
           status: member.status,
+          joined_at: member.joined_at,
+          rider_confirmed_at: member.rider_confirmed_at,
         })),
+        // Summary counts
+        member_counts: {
+          active: allMembers.filter((m: any) => m.status === 'active').length,
+          pending_host: allMembers.filter((m: any) => m.status === 'pending_host').length,
+          pending_rider: allMembers.filter((m: any) => m.status === 'pending_rider').length,
+          dismissed: allMembers.filter((m: any) => m.status === 'dismissed').length,
+          left: allMembers.filter((m: any) => m.status === 'left').length,
+          total: allMembers.length,
+        },
       };
       return formatted;
     });

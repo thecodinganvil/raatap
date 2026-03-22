@@ -94,14 +94,47 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ [API] Pod established: ${podId}. Adding Rider as Pod Member...`);
 
-    // 3. Fetch ride_request to get all required fields
+    // 3. Check if rider already has an active membership in another pod
+    console.log("🔍 [API] Checking if rider already has active membership in another pod...");
+    const { data: existingMembership } = await supabase
+      .from("pod_members")
+      .select("id, pod_id, status, pods(ride_templates(from_location, to_location))")
+      .eq("rider_id", riderId)
+      .in("status", ["active", "pending_rider", "pending_host"])
+      .neq("pod_id", podId) // Different pod
+      .single();
+
+    if (existingMembership) {
+      console.error("❌ [API] Rider already has active membership in another pod:", existingMembership);
+      return NextResponse.json({ 
+        error: "You already have an active ride in another pod. Please leave that pod first." 
+      }, { status: 400 });
+    }
+
+    // 3b. Check if this ride_request is already in ANY pod (prevents duplicate entries)
+    console.log("🔍 [API] Checking if ride_request is already in a pod...");
+    const { data: existingRideRequestMembership } = await supabase
+      .from("pod_members")
+      .select("id, pod_id, status")
+      .eq("ride_request_id", match.ride_request_id)
+      .in("status", ["active", "pending_rider", "pending_host"])
+      .single();
+
+    if (existingRideRequestMembership) {
+      console.error("❌ [API] Ride request already has an active pod membership:", existingRideRequestMembership);
+      return NextResponse.json({ 
+        error: "This ride request is already part of an active pod." 
+      }, { status: 400 });
+    }
+
+    // 4. Fetch ride_request to get all required fields
     const { data: rideRequest } = await supabase
       .from("ride_requests")
       .select("pickup_location, pickup_lat, pickup_lng, pickup_point, pickup_landmark")
       .eq("id", match.ride_request_id)
       .single();
 
-    // 4. Add Rider to Pod (schema matches SQL function exactly)
+    // 5. Add Rider to Pod (schema matches SQL function exactly)
     const { error: memberError } = await supabase
       .from("pod_members")
       .insert({
@@ -119,7 +152,7 @@ export async function POST(request: NextRequest) {
         host_approved_at: new Date().toISOString()
       });
 
-    if (memberError && memberError.code !== '23505') { // Ignore unique violation if they are already in the pod
+    if (memberError) {
       console.error("❌ [API] Error adding rider to Pod:", memberError);
       return NextResponse.json({ error: "Failed to add rider to Pod" }, { status: 500 });
     }
