@@ -8,7 +8,8 @@ const supabase = createClient(
 
 /**
  * Get current pods and rides for a user
- * Replaces backend proxy - now calls Supabase directly
+ * Only returns ACTIVE members (status: 'active' or 'pending_*')
+ * Calculates seats_taken based on active members only
  */
 export async function POST(request: NextRequest) {
   try {
@@ -120,18 +121,57 @@ export async function POST(request: NextRequest) {
     }
     console.log("✅ [API] Found", riderRides?.length || 0, "rider rides");
 
+    // Filter out inactive members and recalculate seats_taken
+    const processedHostPods = (hostPods || []).map((pod) => {
+      // Filter to only active members (status: 'active' or 'pending_*')
+      const activeMembers = (pod.pod_members || []).filter(
+        (m: any) => m.status === 'active' || m.status?.startsWith('pending_')
+      );
+      
+      // Calculate actual seats taken
+      const actualSeatsTaken = activeMembers.filter(
+        (m: any) => m.status === 'active'
+      ).length;
+
+      console.log(`📊 [API] Pod ${pod.id}: ${activeMembers.length} active members, ${actualSeatsTaken} seats taken (db shows ${pod.ride_template?.seats_taken})`);
+
+      return {
+        ...pod,
+        pod_members: activeMembers,
+        actual_seats_taken: actualSeatsTaken,
+        actual_available_seats: (pod.ride_template?.available_seats || 0) - actualSeatsTaken,
+      };
+    });
+
+    // Filter inactive members from rider pod view too
+    const processedRiderRides = (riderRides || []).map((ride) => {
+      if (ride.pod?.pod_members) {
+        const activeMembers = ride.pod.pod_members.filter(
+          (m: any) => m.status === 'active' || m.status?.startsWith('pending_')
+        );
+        return {
+          ...ride,
+          pod: {
+            ...ride.pod,
+            pod_members: activeMembers,
+          },
+        };
+      }
+      return ride;
+    });
+
     console.log(
-      `✅ [API] Total - Host pods: ${hostPods?.length || 0}, Rider rides: ${riderRides?.length || 0}`
+      `✅ [API] Total - Host pods: ${processedHostPods.length}, Rider rides: ${processedRiderRides.length}`
     );
 
     // Log first pod data to debug
-    if (hostPods && hostPods.length > 0) {
-      console.log("🔍 [API] First pod data:", JSON.stringify(hostPods[0], null, 2));
+    if (processedHostPods.length > 0) {
+      console.log("🔍 [API] First pod data:", JSON.stringify(processedHostPods[0], null, 2));
     }
 
     return NextResponse.json({
-      host_pods: hostPods || [],
-      rider_rides: riderRides || [],
+      host_pods: processedHostPods,
+      rider_rides: processedRiderRides,
     });
   } catch (error) {
     console.error("❌ [API] Unexpected error:", error);

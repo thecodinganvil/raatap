@@ -613,25 +613,45 @@ export default function DashboardContent() {
 
       // No user found, redirect to login
       console.log("No session found, redirecting to login");
+      setLoading(false); // Set loading to false BEFORE redirect to prevent white flash
       router.push("/signup");
     };
 
-    checkUser();
+    // Track if checkUser is still running to prevent race conditions
+    let checkUserPromise: Promise<void> | null = null;
+
+    const handleAuthStateChange = async (event: string, session: any) => {
+      console.log("Dashboard auth state change:", event, session?.user?.email);
+      
+      if (event === "SIGNED_OUT") {
+        router.push("/signup");
+        return;
+      }
+      
+      if (event === "SIGNED_IN" && session?.user) {
+        // If checkUser is still running, wait for it to complete
+        if (checkUserPromise) {
+          await checkUserPromise;
+        }
+        // Only update if user hasn't been set yet
+        if (!user?.id || user.id !== session.user.id) {
+          setUser(session.user);
+          // Don't set loading=false here - checkUser will do it
+          // This prevents race conditions where we render before submitted is set
+        }
+      }
+    };
+
+    // Start checkUser and store the promise so auth handler can await it
+    checkUserPromise = checkUser();
+    checkUserPromise.catch(console.error); // Prevent unhandled rejection
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Dashboard auth state change:", event, session?.user?.email);
-      if (event === "SIGNED_IN" && session?.user) {
-        setUser(session.user);
-        setLoading(false);
-      } else if (event === "SIGNED_OUT") {
-        router.push("/signup");
-      }
-    });
+    } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, [router, user?.id]);
 
   const handleNext = () => {
     // Validate step 1 fields
@@ -1272,17 +1292,17 @@ export default function DashboardContent() {
 
           {/* CONFIRMED PODS */}
           {(confirmedPods && (
-            // Show confirmed pod card only if:
-            // 1. Host has pod with at least one ACTIVE member, OR
+            // Show confirmed pod card if:
+            // 1. Host has ANY pod (with or without members), OR
             // 2. Rider has active ride
-            (confirmedPods.host_pods?.some((pod: any) => pod.pod_members?.some((m: any) => m.status === 'active'))) ||
+            (confirmedPods.host_pods?.length > 0) ||
             (confirmedPods.rider_rides?.some((ride: any) => ride.status === 'active'))
           )) && (
             // CONFIRMED RIDE CARD
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 overflow-hidden border border-white/50">
                <div className="bg-gradient-to-r from-[#10b981] to-[#059669] p-6 text-white text-center">
-                 <h2 className="text-2xl font-semibold mb-1">Pod is confirmed!</h2>
-                 <p className="opacity-90">Your commute is scheduled</p>
+                 <h2 className="text-2xl font-semibold mb-1">Your Ride Pod</h2>
+                 <p className="opacity-90">Your commute is ready</p>
                </div>
 
                <div className="p-8">
@@ -1317,12 +1337,12 @@ export default function DashboardContent() {
                                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                                         <div
                                             className="h-full bg-green-500 rounded-full transition-all duration-500"
-                                            style={{ width: `${(pod.ride_template?.available_seats || pod.available_seats || 0) > 0 ? ((pod.ride_template?.seats_taken || pod.seats_taken || 0) / (pod.ride_template?.available_seats || pod.available_seats || 1)) * 100 : 0}%` }}
+                                            style={{ width: `${(pod.actual_available_seats ?? pod.ride_template?.available_seats ?? pod.available_seats ?? 0) > 0 ? ((pod.actual_seats_taken ?? 0) / (pod.actual_available_seats ?? pod.ride_template?.available_seats ?? pod.available_seats ?? 1)) * 100 : 0}%` }}
                                         ></div>
                                      </div>
-                                     <span className="text-xs font-semibold text-gray-500">
-                                        {pod.ride_template?.seats_taken || pod.seats_taken || 0}/{pod.ride_template?.available_seats || pod.available_seats || 0} Seats
-                                     </span>
+                                      <span className="text-xs font-semibold text-gray-500">
+                                         {pod.actual_seats_taken ?? 0}/{pod.actual_available_seats ?? pod.ride_template?.available_seats ?? pod.available_seats ?? 0} Seats Available
+                                      </span>
                                 </div>
                             </div>
                          </div>
@@ -1333,23 +1353,23 @@ export default function DashboardContent() {
                            </div>
                            
                            {pod.pod_members?.length > 0 ? (
-                              <div className="space-y-3">
-                                {pod.pod_members.map((member: any) => (
-                                  <div key={member.id} className="relative p-4 border border-gray-100 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
-                                    <div className="flex items-center gap-3 mb-3">
-                                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white font-bold">
-                                        {member.profiles?.full_name?.charAt(0) || "R"}
-                                      </div>
-                                      <div>
-                                        <p className="font-semibold text-gray-800">{member.profiles?.full_name || "Rider"}</p>
-                                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                                           <span className={`px-2 py-0.5 rounded-full ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                             {member.status === 'active' ? 'Confirmed' : member.status}
-                                           </span>
-                                        </div>
-                                      </div>
-                                      <div className="ml-auto flex items-center gap-2">
-                                        <span className="text-xs text-gray-500">{member.profiles?.phone_number}</span>
+                             <div className="space-y-3">
+                               {pod.pod_members.map((member: any) => (
+                                 <div key={member.id} className="relative p-4 border border-gray-100 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                                   <div className="flex items-center gap-3 mb-3">
+                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white font-bold">
+                                       {member.profiles?.full_name?.charAt(0) || "R"}
+                                     </div>
+                                     <div>
+                                       <p className="font-semibold text-gray-800">{member.profiles?.full_name || "Rider"}</p>
+                                       <div className="flex items-center gap-2 text-xs text-gray-500">
+                                          <span className={`px-2 py-0.5 rounded-full ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                            {member.status === 'active' ? 'Confirmed' : member.status}
+                                          </span>
+                                       </div>
+                                     </div>
+                                     <div className="ml-auto flex items-center gap-2">
+                                       <span className="text-xs text-gray-500">{member.profiles?.phone_number}</span>
                                         <a href={`tel:${member.profiles?.phone_number}`} className="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded-full hover:bg-[#6675FF] hover:text-white transition-colors">
                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                                         </a>
@@ -1626,7 +1646,7 @@ export default function DashboardContent() {
                 Retry
               </button>
             </div>
-          )} {(confirmedPods !== null && !podsLoadError && !confirmedPods?.rider_rides?.length && !confirmedPods?.host_pods?.length && matchSuggestions.length === 0) && (
+          )}           {(confirmedPods !== null && !podsLoadError && !confirmedPods?.rider_rides?.length && !confirmedPods?.host_pods?.length && matchSuggestions.length === 0) && (
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 p-8 md:p-10 border border-white/50 text-center">
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-[#6675FF] to-[#8892ff] flex items-center justify-center animate-pulse">
                 <svg
@@ -1655,6 +1675,40 @@ export default function DashboardContent() {
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-[#6675FF]"></span>
                 </span>
                 Searching for riders...
+              </div>
+            </div>
+          )}
+          
+          {/* Fallback: If nothing else rendered, show the empty state (safety net) */}
+          {!confirmedPods?.host_pods?.length && !confirmedPods?.rider_rides?.length && matchSuggestions.length === 0 && !loadingPods && (
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#6675FF]/10 p-8 md:p-10 border border-white/50 text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-[#6675FF] to-[#8892ff] flex items-center justify-center animate-pulse">
+                <svg
+                  className="w-10 h-10 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <h1 className="text-2xl font-semibold text-[#171717] mb-3">
+                Welcome, {formData.full_name || 'Rider'}!
+              </h1>
+              <p className="text-gray-500 mb-6">
+                Your profile is set up. We&apos;ll notify you when we find matches for your route.
+              </p>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6675FF]/10 text-[#6675FF] rounded-full text-sm font-medium">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8892ff] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-[#6675FF]"></span>
+                </span>
+                Ready for matching...
               </div>
             </div>
           )}
