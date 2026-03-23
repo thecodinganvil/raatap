@@ -152,6 +152,21 @@ export async function POST(request: NextRequest) {
         .eq("id", podMember.ride_request_id);
     }
 
+    // Log activity for pod
+    await supabase.from("activity_logs").insert({
+      log_level: "INFO",
+      function_name: "pod_leave",
+      action: "Rider left pod",
+      user_id: userId,
+      entity_type: "pod",
+      entity_id: podMember.pod_id,
+      details: {
+        pod_member_id: podMemberId,
+        reason: reason,
+        rider_name: podMember.rider_id,
+      },
+    });
+
     console.log("✅ [API] Rider successfully left pod");
     return NextResponse.json({
       success: true,

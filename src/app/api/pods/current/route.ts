@@ -164,6 +164,22 @@ export async function POST(request: NextRequest) {
       `✅ [API] Total - Host pods: ${processedHostPods.length}, Rider rides: ${processedRiderRides.length}`
     );
 
+    // Fetch activity logs for host pods
+    const podIds = processedHostPods.map((p: any) => p.id);
+    let activityLogs: any[] = [];
+    
+    if (podIds.length > 0) {
+      const { data: logs } = await supabase
+        .from("activity_logs")
+        .select("*")
+        .in("entity_id", podIds)
+        .eq("entity_type", "pod")
+        .order("log_time", { ascending: false })
+        .limit(20);
+      
+      activityLogs = logs || [];
+    }
+
     // Log first pod data to debug
     if (processedHostPods.length > 0) {
       console.log("🔍 [API] First pod data:", JSON.stringify(processedHostPods[0], null, 2));
@@ -172,6 +188,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       host_pods: processedHostPods,
       rider_rides: processedRiderRides,
+      activity_logs: activityLogs,
     });
   } catch (error) {
     console.error("❌ [API] Unexpected error:", error);

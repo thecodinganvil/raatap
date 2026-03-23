@@ -70,7 +70,7 @@ export default function DashboardView({
                         <div className="relative z-10">
                           <div className="flex justify-between items-start mb-2">
                             <span className="text-xs font-bold text-[#6675FF] bg-[#6675FF]/10 px-2 py-1 rounded-full uppercase tracking-wider">
-                              {pod.ride_templates.vehicle_type === "2_wheeler"
+                              {(pod.ride_template?.available_seats === 1 || pod.ride_templates.vehicle_type === "2_wheeler")
                                 ? "Bike Pool"
                                 : "Car Pool"}
                             </span>
