@@ -108,6 +108,7 @@ export default function DashboardContent() {
   const [selectedDismissMemberId, setSelectedDismissMemberId] = useState<string | null>(null);
   const [dismissReason, setDismissReason] = useState("");
   const [dismissingRider, setDismissingRider] = useState(false);
+  const [approvingRider, setApprovingRider] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     full_name: "",
@@ -387,6 +388,36 @@ export default function DashboardContent() {
       showNotification('error', 'Error dismissing rider. Please try again.');
     } finally {
       setDismissingRider(false);
+    }
+  };
+
+  const handleApproveRider = async (podMemberId: string) => {
+    if (!user?.id) return;
+
+    setApprovingRider(true);
+    try {
+      const response = await fetch("/api/pods/approve-rider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          podMemberId,
+          hostId: user.id
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        showNotification('success', 'Rider has been approved');
+        fetchConfirmedPods(user.id);
+      } else {
+        showNotification('error', data.error || 'Failed to approve rider');
+      }
+    } catch (error) {
+      console.error("Error approving rider:", error);
+      showNotification('error', 'Error approving rider. Please try again.');
+    } finally {
+      setApprovingRider(false);
     }
   };
 
@@ -1347,68 +1378,139 @@ export default function DashboardContent() {
                             </div>
                          </div>
                          
-                         <div>
-                           <div className="flex justify-between items-end mb-3">
-                                <p className="text-sm font-semibold text-gray-700">Riders ({pod.pod_members?.length || 0})</p>
-                           </div>
-                           
-                           {pod.pod_members?.length > 0 ? (
-                             <div className="space-y-3">
-                               {pod.pod_members.map((member: any) => (
-                                 <div key={member.id} className="relative p-4 border border-gray-100 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
-                                   <div className="flex items-center gap-3 mb-3">
-                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white font-bold">
-                                       {member.profiles?.full_name?.charAt(0) || "R"}
-                                     </div>
-                                     <div>
-                                       <p className="font-semibold text-gray-800">{member.profiles?.full_name || "Rider"}</p>
-                                       <div className="flex items-center gap-2 text-xs text-gray-500">
-                                          <span className={`px-2 py-0.5 rounded-full ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                            {member.status === 'active' ? 'Confirmed' : member.status}
-                                          </span>
-                                       </div>
-                                     </div>
-                                     <div className="ml-auto flex items-center gap-2">
-                                       <span className="text-xs text-gray-500">{member.profiles?.phone_number}</span>
-                                        <a href={`tel:${member.profiles?.phone_number}`} className="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded-full hover:bg-[#6675FF] hover:text-white transition-colors">
-                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                                        </a>
-                                        <button
-                                          onClick={() => {
-                                            setSelectedDismissMemberId(member.id);
-                                            setShowDismissModal(true);
-                                          }}
-                                          className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
-                                          title="Remove rider"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                        </button>
+<div>
+                            <div className="flex justify-between items-end mb-3">
+                                 {(() => {
+                                   const confirmedCount = (pod.pod_members?.filter((m: any) => m.status === 'active') || []).length;
+                                   const pendingCount = (pod.pod_members?.filter((m: any) => m.status === 'pending_host') || []).length;
+                                   return <p className="text-sm font-semibold text-gray-700">Riders ({confirmedCount + pendingCount})</p>;
+                                 })()}
+                            </div>
+                            
+                            {(() => {
+                              const confirmedMembers = pod.pod_members?.filter((m: any) => m.status === 'active') || [];
+                              const pendingMembers = pod.pod_members?.filter((m: any) => m.status === 'pending_host') || [];
+                              
+                              return (
+                                <>
+                                  {pendingMembers.length > 0 && (
+                                    <div className="mb-4">
+                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Waiting for Approval ({pendingMembers.length})</p>
+                                      <div className="space-y-3">
+                                        {pendingMembers.map((member: any) => (
+                                          <div key={member.id} className="relative p-4 border border-amber-200 rounded-xl bg-amber-50 shadow-sm">
+                                            <div className="flex items-center gap-3 mb-3">
+                                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white font-bold">
+                                                {member.profiles?.full_name?.charAt(0) || "R"}
+                                              </div>
+                                              <div>
+                                                <p className="font-semibold text-gray-800">{member.profiles?.full_name || "Rider"}</p>
+                                                <div className="flex items-center gap-2 text-xs text-amber-600">
+                                                   <span className="px-2 py-0.5 rounded-full bg-amber-100">
+                                                     Waiting for host approval
+                                                   </span>
+                                                </div>
+                                              </div>
+                                              <div className="ml-auto flex items-center gap-2">
+                                                  <button
+                                                    onClick={() => handleApproveRider(member.id)}
+                                                    disabled={approvingRider}
+                                                    className="px-3 py-1.5 bg-green-500 text-white text-xs font-medium rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+                                                  >
+                                                    {approvingRider ? '...' : 'Accept'}
+                                                  </button>
+                                                  <button
+                                                    onClick={() => {
+                                                      setSelectedDismissMemberId(member.id);
+                                                      setShowDismissModal(true);
+                                                    }}
+                                                    className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
+                                                    title="Reject rider"
+                                                  >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                  </button>
+                                              </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                               <div className="bg-white p-2 rounded-lg border border-amber-100">
+                                                 <span className="block text-amber-600 font-bold uppercase tracking-wider text-[10px] mb-0.5">Pickup</span>
+                                                 <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.pickup_location}>
+                                                     {member.ride_requests?.pickup_location || "N/A"}
+                                                 </span>
+                                               </div>
+                                               <div className="bg-white p-2 rounded-lg border border-amber-100">
+                                                 <span className="block text-amber-600 font-bold uppercase tracking-wider text-[10px] mb-0.5">Dropoff</span>
+                                                 <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.destination_location}>
+                                                     {member.ride_requests?.destination_location || "N/A"}
+                                                 </span>
+                                               </div>
+                                            </div>
+                                          </div>
+                                        ))}
                                       </div>
                                     </div>
-                                    
-                                   <div className="grid grid-cols-2 gap-2 text-xs">
-                                      <div className="bg-[#6675FF]/10 p-2 rounded-lg">
-                                        <span className="block text-[#6675FF] font-bold uppercase tracking-wider text-[10px] mb-0.5">Pickup</span>
-                                        <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.pickup_location}>
-                                            {member.ride_requests?.pickup_location || "N/A"}
-                                        </span>
-                                      </div>
-                                      <div className="bg-[#4d5ce6]/10 p-2 rounded-lg">
-                                        <span className="block text-[#4d5ce6] font-bold uppercase tracking-wider text-[10px] mb-0.5">Dropoff</span>
-                                        <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.destination_location}>
-                                            {member.ride_requests?.destination_location || "N/A"}
-                                        </span>
-                                      </div>
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
-                           ) : (
-                             <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                <p className="text-gray-500 text-sm">Waiting for riders to match...</p>
-                             </div>
-                           )}
-                         </div>
+                                  )}
+
+                                  {confirmedMembers.length > 0 ? (
+                                    <div className="space-y-3">
+                                      {confirmedMembers.map((member: any) => (
+                                        <div key={member.id} className="relative p-4 border border-gray-100 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                                          <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white font-bold">
+                                              {member.profiles?.full_name?.charAt(0) || "R"}
+                                            </div>
+                                            <div>
+                                              <p className="font-semibold text-gray-800">{member.profiles?.full_name || "Rider"}</p>
+                                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                 <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                                                   Confirmed
+                                                 </span>
+                                              </div>
+                                            </div>
+                                            <div className="ml-auto flex items-center gap-2">
+                                              <span className="text-xs text-gray-500">{member.profiles?.phone_number}</span>
+                                               <a href={`tel:${member.profiles?.phone_number}`} className="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded-full hover:bg-[#6675FF] hover:text-white transition-colors">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                                               </a>
+                                               <button
+                                                 onClick={() => {
+                                                   setSelectedDismissMemberId(member.id);
+                                                   setShowDismissModal(true);
+                                                 }}
+                                                 className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
+                                                 title="Remove rider"
+                                               >
+                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                               </button>
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="grid grid-cols-2 gap-2 text-xs">
+                                             <div className="bg-[#6675FF]/10 p-2 rounded-lg">
+                                               <span className="block text-[#6675FF] font-bold uppercase tracking-wider text-[10px] mb-0.5">Pickup</span>
+                                               <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.pickup_location}>
+                                                   {member.ride_requests?.pickup_location || "N/A"}
+                                               </span>
+                                             </div>
+                                             <div className="bg-[#4d5ce6]/10 p-2 rounded-lg">
+                                               <span className="block text-[#4d5ce6] font-bold uppercase tracking-wider text-[10px] mb-0.5">Dropoff</span>
+                                               <span className="text-gray-700 font-medium truncate block" title={member.ride_requests?.destination_location}>
+                                                   {member.ride_requests?.destination_location || "N/A"}
+                                               </span>
+                                             </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : pendingMembers.length === 0 && (
+                                    <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                       <p className="text-gray-500 text-sm">Waiting for riders to match...</p>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
                        </div>
                      ))}
                    </div>
