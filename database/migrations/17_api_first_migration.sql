@@ -53,6 +53,8 @@ DROP FUNCTION IF EXISTS generate_all_matches CASCADE;
 -- Drop old functions if they exist (to avoid overloading conflicts)
 DROP FUNCTION IF EXISTS find_intersecting_requests(GEOGRAPHY, INTEGER);
 DROP FUNCTION IF EXISTS find_intersecting_templates(GEOGRAPHY, GEOGRAPHY);
+DROP FUNCTION IF EXISTS find_intersecting_requests(TEXT, INTEGER);
+DROP FUNCTION IF EXISTS find_intersecting_templates(TEXT, TEXT);
 
 -- Find intersecting requests (For when a Host creates a Template)
 CREATE OR REPLACE FUNCTION find_intersecting_requests(
@@ -66,7 +68,8 @@ RETURNS TABLE (
     destination_point GEOGRAPHY,
     pickup_distance_meters FLOAT,
     destination_distance_meters FLOAT,
-    host_route_distance_meters FLOAT
+    host_route_distance_meters FLOAT,
+    rider_total_journey_meters FLOAT
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -74,7 +77,6 @@ AS $$
 DECLARE
     v_route_geometry GEOGRAPHY;
 BEGIN
-    -- Convert WKT to geography
     v_route_geometry := ST_GeomFromText(p_route_geometry, 4326)::geography;
     
     RETURN QUERY
@@ -85,14 +87,13 @@ BEGIN
         rr.destination_point::geography,
         ST_Distance(v_route_geometry, rr.pickup_point::geography) AS pickup_distance_meters,
         ST_Distance(v_route_geometry, rr.destination_point::geography) AS destination_distance_meters,
-        ST_Length(v_route_geometry) AS host_route_distance_meters
+        ST_Length(v_route_geometry) AS host_route_distance_meters,
+        ST_Distance(rr.pickup_point::geography, rr.destination_point::geography, true) AS rider_total_journey_meters
     FROM 
         ride_requests rr
     WHERE 
         rr.status = 'active'
-        -- Pickup is within max detour distance
         AND ST_DWithin(v_route_geometry, rr.pickup_point::geography, p_max_detour_meters)
-        -- Destination is tightly within 1km of the route
         AND ST_DWithin(v_route_geometry, rr.destination_point::geography, 1000);
 END;
 $$;
@@ -108,7 +109,8 @@ RETURNS TABLE (
     route_geometry GEOGRAPHY,
     pickup_distance_meters FLOAT,
     destination_distance_meters FLOAT,
-    host_route_distance_meters FLOAT
+    host_route_distance_meters FLOAT,
+    rider_total_journey_meters FLOAT
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -117,7 +119,6 @@ DECLARE
     v_pickup_point GEOGRAPHY;
     v_destination_point GEOGRAPHY;
 BEGIN
-    -- Convert WKT to geography
     v_pickup_point := ST_GeomFromText(p_pickup_point, 4326)::geography;
     v_destination_point := ST_GeomFromText(p_destination_point, 4326)::geography;
     
@@ -128,15 +129,14 @@ BEGIN
         rt.route_geometry,
         ST_Distance(rt.route_geometry, v_pickup_point) AS pickup_distance_meters,
         ST_Distance(rt.route_geometry, v_destination_point) AS destination_distance_meters,
-        ST_Length(rt.route_geometry) AS host_route_distance_meters
+        ST_Length(rt.route_geometry) AS host_route_distance_meters,
+        ST_Distance(v_pickup_point, v_destination_point, true) AS rider_total_journey_meters
     FROM 
         ride_templates rt
     WHERE 
         rt.status = 'active'
         AND rt.route_geometry IS NOT NULL
-        -- Pickup is within max detour distance defined by host
         AND ST_DWithin(rt.route_geometry, v_pickup_point, rt.max_detour_meters)
-        -- Destination is tightly within 1km of the route
         AND ST_DWithin(rt.route_geometry, v_destination_point, 1000);
 END;
 $$;

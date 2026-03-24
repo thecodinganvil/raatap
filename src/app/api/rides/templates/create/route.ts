@@ -173,9 +173,11 @@ export async function POST(request: NextRequest) {
         }
 
         const score = calculateMatchScore({
-          hostRouteDistance: match.host_route_distance_meters,
-          pickupDistance: match.pickup_distance_meters,
-          destinationDistance: match.destination_distance_meters,
+          hostFrom: { lat: profile.from_lat, lng: profile.from_lng },
+          hostTo: { lat: profile.to_lat, lng: profile.to_lng },
+          riderPickup: { lat: profile.from_lat, lng: profile.from_lng },
+          riderDestination: { lat: profile.to_lat, lng: profile.to_lng },
+          riderTotalJourneyMeters: match.rider_total_journey_meters,
           hostGenderPreference: profile.comfortable_with || 'both',
           riderGenderPreference: riderProfile?.comfortable_with || 'both',
           hostCollege: profile.institution,

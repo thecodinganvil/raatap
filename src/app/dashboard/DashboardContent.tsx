@@ -255,6 +255,10 @@ export default function DashboardContent() {
         if (user?.id) fetchConfirmedPods(user.id);
       } else {
         showNotification('error', data.error || 'Failed to confirm ride');
+        // Remove match from local state when seat unavailable
+        if (data.error?.toLowerCase().includes("seat")) {
+          setMatchSuggestions(prev => prev.filter(m => m.id !== matchId));
+        }
       }
     } catch (error) {
       console.error("Error confirming match:", error);
@@ -571,14 +575,15 @@ export default function DashboardContent() {
         return;
       }
 
-      // Small delay to allow cookies to sync after OAuth redirect
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Longer delay to allow session to initialize after redirect
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Use getUser() which validates with the server - more reliable after OAuth
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
+      try {
+        // Use getUser() which validates with the server - more reliable after OAuth
+        const {
+          data: { user: authUser },
+          error: authError,
+        } = await supabase.auth.getUser();
 
       console.log(
         "Dashboard checkUser - authUser:",
@@ -646,6 +651,10 @@ export default function DashboardContent() {
       console.log("No session found, redirecting to login");
       setLoading(false); // Set loading to false BEFORE redirect to prevent white flash
       router.push("/signup");
+      } catch (err) {
+        console.error("Error checking user:", err);
+        setLoading(false);
+      }
     };
 
     // Track if checkUser is still running to prevent race conditions
@@ -1351,7 +1360,7 @@ export default function DashboardContent() {
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-2">
                                     <span className="text-xs font-bold text-[#6675FF] bg-[#6675FF]/10 px-2 py-1 rounded-full uppercase tracking-wider">
-                                        {pod.ride_templates?.vehicle_type === '2_wheeler' ? 'Bike Pool' : 'Car Pool'}
+                                        {((pod.actual_available_seats ?? pod.ride_template?.available_seats ?? pod.available_seats ?? 0) === 1 || pod.ride_templates?.vehicle_type === '2_wheeler') ? 'Bike Pool' : 'Car Pool'}
                                     </span>
                                     <span className="text-sm font-medium text-gray-500 flex items-center gap-1">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1511,12 +1520,38 @@ export default function DashboardContent() {
                               );
                             })()}
                           </div>
-                       </div>
-                     ))}
-                   </div>
-                 )}
 
-                 {/* RIDER VIEW OF POD */}
+                          {/* Activity Logs */}
+                          {confirmedPods.activity_logs && confirmedPods.activity_logs.length > 0 && (
+                            <div className="mt-6 pt-4 border-t border-gray-100">
+                              <h4 className="text-sm font-semibold text-gray-700 mb-3">Recent Activity</h4>
+                              <div className="space-y-2">
+                                {confirmedPods.activity_logs.slice(0, 5).map((log: any) => (
+                                  <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                                    <div className="w-8 h-8 rounded-full bg-[#6675FF]/10 flex items-center justify-center flex-shrink-0">
+                                      {log.action === 'pod_leave' ? (
+                                        <svg className="w-4 h-4 text-[#6675FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                      ) : log.action === 'pod_dismiss' ? (
+                                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" /></svg>
+                                      ) : (
+                                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm text-gray-700">{log.message}</p>
+                                      <p className="text-xs text-gray-400">{new Date(log.log_time).toLocaleString()}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* RIDER VIEW OF POD */}
                  {confirmedPods.rider_rides?.length > 0 && (
                    <div className="mb-6">
                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Your Pod</h3>
@@ -1589,13 +1624,39 @@ export default function DashboardContent() {
                           >
                             Leave Pod
                           </button>
+
+                          {/* Activity Logs for Rider */}
+                          {confirmedPods.activity_logs && confirmedPods.activity_logs.length > 0 && (
+                            <div className="mt-6 pt-4 border-t border-gray-100">
+                              <h4 className="text-sm font-semibold text-gray-700 mb-3">Recent Activity</h4>
+                              <div className="space-y-2">
+                                {confirmedPods.activity_logs.slice(0, 5).map((log: any) => (
+                                  <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                                    <div className="w-8 h-8 rounded-full bg-[#6675FF]/10 flex items-center justify-center flex-shrink-0">
+                                      {log.action === 'pod_leave' ? (
+                                        <svg className="w-4 h-4 text-[#6675FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                      ) : log.action === 'pod_dismiss' ? (
+                                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" /></svg>
+                                      ) : (
+                                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm text-gray-700">{log.message}</p>
+                                      <p className="text-xs text-gray-400">{new Date(log.log_time).toLocaleString()}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                     ))}
-                   </div>
-                 )}
-               </div>
-            </div>
-          )}           {matchSuggestions.length > 0 && (!confirmedPods?.rider_rides?.length) && (
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}           {matchSuggestions.length > 0 && (!confirmedPods?.rider_rides?.length) && (
             <MatchQueue 
               matchSuggestions={matchSuggestions}
               onAcceptMatch={handleAcceptMatch}

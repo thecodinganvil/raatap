@@ -201,9 +201,9 @@ export async function POST(request: NextRequest) {
     if (seatsError || !updated) {
       console.error("❌ [API] Seat was already taken (race condition):", seatsError);
 
-      // Clean up: Remove rider from pod and reject the match suggestion
+      // Clean up: Remove rider from pod and DELETE the match suggestion
       await supabase.from("pod_members").delete().eq("pod_id", podId).eq("ride_request_id", match.ride_request_id);
-      await supabase.from("match_suggestions").update({ status: "rejected", updated_at: new Date().toISOString() }).eq("id", matchId);
+      await supabase.from("match_suggestions").delete().eq("id", matchId);
 
       return NextResponse.json({ error: "Seat no longer available" }, { status: 400 });
     }
