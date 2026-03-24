@@ -1,11 +1,9 @@
 /**
- * Match Scoring Utility
+ * Proper Overlapping Distance Calculator
  * 
- * Natively calculates ride matching scores based on the Host-First Architecture
- * Uses proper overlapping distance calculation based on actual route coordinates.
+ * Uses actual route coordinates to calculate how much of the host's route
+ * overlaps with the rider's journey (pickup point to destination point)
  */
-
-import { createClient } from "@supabase/supabase-js";
 
 export interface GeoPoint {
   lat: number;
@@ -26,19 +24,18 @@ export interface MatchScoreResult {
   host_route_distance_km: number;
   same_college: boolean;
   reason: string;
-  blocked?: boolean;
-  blockReason?: string;
 }
 
 /**
  * Calculate distance between two points using Haversine formula
+ * Returns distance in meters
  */
-function getHaversineDistance(p1: GeoPoint, p2: GeoPoint): number {
-  const R = 6371000;
-  const lat1 = p1.lat * Math.PI / 180;
-  const lat2 = p2.lat * Math.PI / 180;
-  const deltaLat = (p2.lat - p1.lat) * Math.PI / 180;
-  const deltaLng = (p2.lng - p1.lng) * Math.PI / 180;
+function getHaversineDistance(point1: GeoPoint, point2: GeoPoint): number {
+  const R = 6371000; // Earth radius in meters
+  const lat1 = point1.lat * Math.PI / 180;
+  const lat2 = point2.lat * Math.PI / 180;
+  const deltaLat = (point2.lat - point1.lat) * Math.PI / 180;
+  const deltaLng = (point2.lng - point1.lng) * Math.PI / 180;
 
   const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
     Math.cos(lat1) * Math.cos(lat2) *
@@ -49,99 +46,127 @@ function getHaversineDistance(p1: GeoPoint, p2: GeoPoint): number {
 }
 
 /**
- * Check if a point is near a route segment
+ * Calculate fractional position (0-1) of a point along a line segment
+ * Uses simple projection for straight-line routes
  */
-function isPointOnRoute(from: GeoPoint, to: GeoPoint, target: GeoPoint, threshold = 500): boolean {
-  const distFromStart = getHaversineDistance(from, target);
-  const distFromEnd = getHaversineDistance(to, target);
-  const totalRouteLength = getHaversineDistance(from, to);
+function getFractionAlongRoute(
+  fromPoint: GeoPoint,
+  toPoint: GeoPoint,
+  targetPoint: GeoPoint
+): number {
+  const totalLength = getHaversineDistance(fromPoint, toPoint);
   
+  if (totalLength < 1) return 0; // Avoid division by zero
+  
+  // Distance from start point to target point
+  const distFromStart = getHaversineDistance(fromPoint, targetPoint);
+  
+  // Calculate fraction (capped at 0-1)
+  return Math.max(0, Math.min(1, distFromStart / totalLength));
+}
+
+/**
+ * Check if a point is on/near the route (within threshold)
+ */
+function isPointOnRoute(
+  fromPoint: GeoPoint,
+  toPoint: GeoPoint,
+  targetPoint: GeoPoint,
+  thresholdMeters: number = 500
+): boolean {
+  const distFromStart = getHaversineDistance(fromPoint, targetPoint);
+  const distFromEnd = getHaversineDistance(toPoint, targetPoint);
+  const totalRouteLength = getHaversineDistance(fromPoint, toPoint);
+  
+  // Point is on route if it's close to either endpoint OR within the route segment
   const minDistToRoute = Math.min(
     distFromStart,
     distFromEnd,
     Math.abs(distFromStart + distFromEnd - totalRouteLength)
   );
   
-  return minDistToRoute <= threshold;
+  return minDistToRoute <= thresholdMeters;
 }
 
 /**
- * Get fractional position (0-1) of a point along the route
+ * Calculate the overlapping distance between host route and rider journey
+ * 
+ * @param hostFrom - Host's starting point
+ * @param hostTo - Host's ending point  
+ * @param riderPickup - Rider's pickup point
+ * @param riderDestination - Rider's destination point
+ * @returns Overlapping distance in meters
  */
-function getFractionAlongRoute(from: GeoPoint, to: GeoPoint, target: GeoPoint): number {
-  const totalLength = getHaversineDistance(from, to);
-  if (totalLength < 1) return 0;
-  const distFromStart = getHaversineDistance(from, target);
-  return Math.max(0, Math.min(1, distFromStart / totalLength));
-}
-
-/**
- * Calculate overlapping distance using actual route coordinates
- */
-function calculateOverlappingDistance(
+export function calculateOverlappingDistance(
   hostFrom: GeoPoint,
   hostTo: GeoPoint,
   riderPickup: GeoPoint,
-  riderDest: GeoPoint
+  riderDestination: GeoPoint
 ): number {
+  // Get total route distances
   const hostRouteDistance = getHaversineDistance(hostFrom, hostTo);
-  const riderSegmentLength = getHaversineDistance(riderPickup, riderDest);
+  const riderSegmentLength = getHaversineDistance(riderPickup, riderDestination);
   
-  if (riderSegmentLength < 10) return 0;
+  // If rider segment is too short, return 0
+  if (riderSegmentLength < 10) {
+    return 0;
+  }
   
+  // Check if both rider points are near the host route
   const pickupOnRoute = isPointOnRoute(hostFrom, hostTo, riderPickup);
-  const destOnRoute = isPointOnRoute(hostFrom, hostTo, riderDest);
+  const destOnRoute = isPointOnRoute(hostFrom, hostTo, riderDestination);
   
-  if (!pickupOnRoute || !destOnRoute) return 0;
+  // If rider is not on the route, no overlap
+  if (!pickupOnRoute || !destOnRoute) {
+    return 0;
+  }
   
+  // Calculate fractional positions along the route
   const pickupFraction = getFractionAlongRoute(hostFrom, hostTo, riderPickup);
-  const destFraction = getFractionAlongRoute(hostFrom, hostTo, riderDest);
+  const destFraction = getFractionAlongRoute(hostFrom, hostTo, riderDestination);
+  
+  // Calculate overlapping distance
+  let overlappingDistance = 0;
   
   if (destFraction >= pickupFraction) {
-    return (destFraction - pickupFraction) * hostRouteDistance;
+    // Rider travels in same direction as host
+    overlappingDistance = (destFraction - pickupFraction) * hostRouteDistance;
+  } else {
+    // Rider travels opposite direction - minimal or no overlap
+    overlappingDistance = 0;
   }
-  return 0;
+  
+  return Math.round(overlappingDistance);
 }
 
 /**
- * Check if a host-rider pair has a red flag that blocks matching
+ * Calculate pickup distance (detour from host start to rider pickup)
  */
-export async function checkRedFlag(
-  supabase: any,
-  hostId: string,
-  riderId: string
-): Promise<{ hasRedFlag: boolean; reason?: string }> {
-  try {
-    const { data, error } = await supabase
-      .from("host_behavior_flags")
-      .select("reason")
-      .eq("host_id", hostId)
-      .eq("rider_id", riderId)
-      .eq("flag_type", "red")
-      .is("resolved_at", null)
-      .single();
-
-    if (error && error.code !== "PGRST116") { // Not "no rows returned"
-      console.error("Error checking red flags:", error);
-      return { hasRedFlag: false };
-    }
-
-    return {
-      hasRedFlag: !!data,
-      reason: data?.reason
-    };
-  } catch (err) {
-    console.error("Exception checking red flags:", err);
-    return { hasRedFlag: false };
-  }
+export function calculatePickupDistance(
+  hostFrom: GeoPoint,
+  riderPickup: GeoPoint
+): number {
+  return getHaversineDistance(hostFrom, riderPickup);
 }
 
-export function calculateMatchScore({
+/**
+ * Calculate destination distance (detour from host end to rider destination)
+ */
+export function calculateDestinationDistance(
+  hostTo: GeoPoint,
+  riderDestination: GeoPoint
+): number {
+  return getHaversineDistance(hostTo, riderDestination);
+}
+
+/**
+ * Main match scoring function using proper overlapping distance
+ */
+export function calculateMatchScoreV2({
   hostFrom,
   hostTo,
   riderPickup,
   riderDestination,
-  riderTotalJourneyMeters,
   hostGenderPreference,
   riderGenderPreference,
   hostCollege,
@@ -153,7 +178,6 @@ export function calculateMatchScore({
   hostTo: GeoPoint;
   riderPickup: GeoPoint;
   riderDestination: GeoPoint;
-  riderTotalJourneyMeters: number;
   hostGenderPreference: string;
   riderGenderPreference: string;
   hostCollege?: string;
@@ -161,12 +185,13 @@ export function calculateMatchScore({
   maxDetourMeters?: number;
   maxDestinationMeters?: number;
 }): MatchScoreResult {
-  // Calculate distances using Haversine
-  const pickupDistance = getHaversineDistance(hostFrom, riderPickup);
-  const destinationDistance = getHaversineDistance(hostTo, riderDestination);
+  // Calculate distances
+  const pickupDistance = calculatePickupDistance(hostFrom, riderPickup);
+  const destinationDistance = calculateDestinationDistance(hostTo, riderDestination);
   const hostRouteDistance = getHaversineDistance(hostFrom, hostTo);
+  
   // 1. Gender Compatibility Check
-  const genderCompatible = 
+  const genderCompatible =
     hostGenderPreference === 'both' ||
     riderGenderPreference === 'both' ||
     hostGenderPreference === riderGenderPreference;
@@ -227,48 +252,48 @@ export function calculateMatchScore({
     };
   }
 
-  // 4. Calculate Overlapping Distance using simple formula
-  // overlap = rider_total_journey - pickup_detour - destination_detour
-  let overlappingDistance = 0;
-  if (riderTotalJourneyMeters > 0) {
-    overlappingDistance = Math.max(0, riderTotalJourneyMeters - pickupDistance - destinationDistance);
-  }
+  // 4. Calculate Proper Overlapping Distance
+  const overlappingDistance = calculateOverlappingDistance(
+    hostFrom,
+    hostTo,
+    riderPickup,
+    riderDestination
+  );
   
-  const overlapRatio = riderTotalJourneyMeters > 0 
-    ? overlappingDistance / riderTotalJourneyMeters 
+  const overlapRatio = hostRouteDistance > 0 
+    ? overlappingDistance / hostRouteDistance 
     : 0;
 
   // 5. Check if same college
-  const sameCollege = !!(hostCollege && riderCollege && 
-    hostCollege.toLowerCase().trim() === riderCollege.toLowerCase().trim());
+  const sameCollege = !!(
+    hostCollege && riderCollege && 
+    hostCollege.toLowerCase().trim() === riderCollege.toLowerCase().trim()
+  );
 
-  // 6. Calculate Match Score (base 100) + College Bonus (10)
+  // 6. Calculate Match Score
   const collegeBonus = sameCollege ? 10 : 0;
   
-  let matchScore = (
+  const matchScore = (
     (1.0 - (pickupDistance / 2000.0)) * 0.50 +
     (1.0 - (destinationDistance / 1000.0)) * 0.30 +
     overlapRatio * 0.20
-  ) * 100;
+  ) * 100 + collegeBonus;
 
-  // Add college bonus
-  matchScore = matchScore + collegeBonus;
-
-  matchScore = Math.max(0, Math.min(110, matchScore)); // Allow up to 110 with bonus
+  const finalScore = Math.max(0, Math.min(110, matchScore));
 
   return {
     compatible: true,
-    match_score: parseFloat(matchScore.toFixed(2)),
+    match_score: parseFloat(finalScore.toFixed(2)),
     pickup_distance_meters: Math.round(pickupDistance),
     pickup_distance_km: parseFloat((pickupDistance / 1000).toFixed(2)),
     destination_distance_meters: Math.round(destinationDistance),
     destination_distance_km: parseFloat((destinationDistance / 1000).toFixed(2)),
     overlapping_distance_meters: Math.round(overlappingDistance),
     overlapping_distance_km: parseFloat((overlappingDistance / 1000).toFixed(2)),
-    overlap_ratio: parseFloat(overlapRatio.toFixed(2)),
+    overlap_ratio: parseFloat(Math.max(0, Math.min(1, overlapRatio)).toFixed(2)),
     host_route_distance_meters: Math.round(hostRouteDistance),
     host_route_distance_km: parseFloat((hostRouteDistance / 1000).toFixed(2)),
     same_college: sameCollege,
-    reason: sameCollege ? 'Compatible route found (Same College!)' : 'Compatible route found via API'
+    reason: sameCollege ? 'Compatible route found (Same College!)' : 'Compatible route found'
   };
 }
