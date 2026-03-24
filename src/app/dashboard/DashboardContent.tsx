@@ -1529,9 +1529,9 @@ export default function DashboardContent() {
                                 {confirmedPods.activity_logs.slice(0, 5).map((log: any) => (
                                   <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                                     <div className="w-8 h-8 rounded-full bg-[#6675FF]/10 flex items-center justify-center flex-shrink-0">
-                                      {log.action === 'pod_leave' ? (
+                                      {(log.action || "").toLowerCase().includes("leave") ? (
                                         <svg className="w-4 h-4 text-[#6675FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                                      ) : log.action === 'pod_dismiss' ? (
+                                      ) : (log.action || "").toLowerCase().includes("dismiss") || (log.action || "").toLowerCase().includes("remove") ? (
                                         <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" /></svg>
                                       ) : (
                                         <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1633,9 +1633,9 @@ export default function DashboardContent() {
                                 {confirmedPods.activity_logs.slice(0, 5).map((log: any) => (
                                   <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                                     <div className="w-8 h-8 rounded-full bg-[#6675FF]/10 flex items-center justify-center flex-shrink-0">
-                                      {log.action === 'pod_leave' ? (
+                                      {(log.action || "").toLowerCase().includes("leave") ? (
                                         <svg className="w-4 h-4 text-[#6675FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                                      ) : log.action === 'pod_dismiss' ? (
+                                      ) : (log.action || "").toLowerCase().includes("dismiss") || (log.action || "").toLowerCase().includes("remove") ? (
                                         <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" /></svg>
                                       ) : (
                                         <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
