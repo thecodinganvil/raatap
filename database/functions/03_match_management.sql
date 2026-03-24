@@ -135,18 +135,30 @@ AS $$
 DECLARE
     match_record RECORD;
     pod_member_id UUID;
+    available_seats INTEGER;
 BEGIN
     -- Get match suggestion and verify ownership
-    SELECT ms.*, rr.rider_id
+    SELECT ms.*, rr.rider_id, rt.available_seats, rt.seats_taken
     INTO match_record
     FROM match_suggestions ms
     JOIN ride_requests rr ON ms.ride_request_id = rr.id
+    JOIN ride_templates rt ON ms.ride_template_id = rt.id
     WHERE ms.id = match_id 
     AND ms.status = 'accepted'
     AND rr.rider_id = rider_id;
     
     IF NOT FOUND THEN
         RETURN json_build_object('success', false, 'error', 'Match not found or not accessible');
+    END IF;
+    
+    -- Check if seats are still available
+    available_seats := match_record.available_seats - match_record.seats_taken;
+    IF available_seats <= 0 THEN
+        -- Delete the match suggestion and reset ride request
+        UPDATE match_suggestions SET status = 'expired' WHERE id = match_id;
+        UPDATE ride_requests SET status = 'active' WHERE id = match_record.ride_request_id;
+        DELETE FROM pod_members WHERE ride_request_id = match_record.ride_request_id;
+        RETURN json_build_object('success', false, 'error', 'Pod is full. Your ride request has been reactivated.');
     END IF;
     
     -- Find and update the pod member

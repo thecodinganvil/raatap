@@ -177,7 +177,42 @@ export async function POST(request: NextRequest) {
         .order("log_time", { ascending: false })
         .limit(20);
       
-      activityLogs = logs || [];
+      // Transform raw logs into display-friendly format with human-readable messages
+      activityLogs = (logs || []).map((log: any) => {
+        let message = "";
+        const normalizedAction = log.action?.toLowerCase() || "";
+        
+        if (normalizedAction.includes("leave")) {
+          if (log.details?.reason === "schedule_conflict") {
+            message = "Rider left due to schedule conflict";
+          } else if (log.details?.reason === "personal_reasons") {
+            message = "Rider left for personal reasons";
+          } else {
+            message = "Rider left the pod";
+          }
+        } else if (normalizedAction.includes("dismiss") || normalizedAction.includes("remove")) {
+          if (log.details?.reason === "no_show") {
+            message = "Rider was dismissed for no-show";
+          } else if (log.details?.reason === "inappropriate_behavior") {
+            message = "Rider was dismissed for inappropriate behavior";
+          } else {
+            message = "Rider was removed from the pod";
+          }
+        } else if (normalizedAction.includes("join")) {
+          message = "New rider joined the pod";
+        } else if (normalizedAction.includes("confirm")) {
+          message = "Rider confirmed their ride";
+        } else if (normalizedAction.includes("create")) {
+          message = "Pod was created";
+        } else {
+          message = log.action || "Activity logged";
+        }
+        
+        return {
+          ...log,
+          message,
+        };
+      });
     }
 
     // Log first pod data to debug
