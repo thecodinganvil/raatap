@@ -154,7 +154,11 @@ BEGIN
     -- Check if seats are still available
     available_seats := match_record.available_seats - match_record.seats_taken;
     IF available_seats <= 0 THEN
-        RETURN json_build_object('success', false, 'error', 'No available seats. This ride is now full.');
+        -- Delete the match suggestion and reset ride request
+        UPDATE match_suggestions SET status = 'expired' WHERE id = match_id;
+        UPDATE ride_requests SET status = 'active' WHERE id = match_record.ride_request_id;
+        DELETE FROM pod_members WHERE ride_request_id = match_record.ride_request_id;
+        RETURN json_build_object('success', false, 'error', 'Pod is full. Your ride request has been reactivated.');
     END IF;
     
     -- Find and update the pod member
