@@ -122,19 +122,39 @@ export async function POST(request: NextRequest) {
 
     if (existingRideRequestMembership) {
       console.error("❌ [API] Ride request already has an active pod membership:", existingRideRequestMembership);
-      return NextResponse.json({ 
-        error: "This ride request is already part of an active pod." 
+      return NextResponse.json({
+        error: "This ride request is already part of an active pod."
       }, { status: 400 });
     }
 
-    // 4. Fetch ride_request to get all required fields
+    // 4. Check seat availability BEFORE adding rider to pod
+    const { data: templateData, error: templateError } = await supabase
+      .from("ride_templates")
+      .select("seats_taken, available_seats")
+      .eq("id", match.ride_template_id)
+      .eq("status", "active")
+      .single();
+
+    if (templateError || !templateData) {
+      console.error("❌ [API] Error fetching template:", templateError);
+      return NextResponse.json({ error: "Ride not found" }, { status: 400 });
+    }
+
+    if (templateData.seats_taken >= templateData.available_seats) {
+      console.error("❌ [API] No available seats");
+      // Delete the match suggestion since rider tried to confirm but failed
+      await supabase.from("match_suggestions").delete().eq("id", matchId);
+      return NextResponse.json({ error: "No available seats" }, { status: 400 });
+    }
+
+    // 5. Fetch ride_request to get all required fields
     const { data: rideRequest } = await supabase
       .from("ride_requests")
       .select("pickup_location, pickup_lat, pickup_lng, pickup_point, pickup_landmark")
       .eq("id", match.ride_request_id)
       .single();
 
-    // 5. Add Rider to Pod (schema matches SQL function exactly)
+    // 6. Add Rider to Pod (schema matches SQL function exactly)
     const { error: memberError } = await supabase
       .from("pod_members")
       .insert({
@@ -159,10 +179,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ [API] Rider added to Pod. Updating Match status to 'accepted'...`);
 
-    // 5. Update match_suggestion status
+    // 7. Update match_suggestion status
     const { error: updateError } = await supabase
       .from("match_suggestions")
-      .update({ 
+      .update({
         status: "accepted",
         updated_at: new Date().toISOString()
       })
@@ -172,23 +192,7 @@ export async function POST(request: NextRequest) {
       console.error("❌ [API] Error updating match status to accepted:", updateError);
     }
 
-    // 6. Increment seats_taken on ride_template (atomic update - prevents race condition)
-    const { data: templateData, error: templateError } = await supabase
-      .from("ride_templates")
-      .select("seats_taken, available_seats")
-      .eq("id", match.ride_template_id)
-      .eq("status", "active")
-      .single();
-
-    if (templateError || !templateData) {
-      console.error("❌ [API] Error fetching template:", templateError);
-      return NextResponse.json({ error: "Ride not found" }, { status: 400 });
-    }
-
-    if (templateData.seats_taken >= templateData.available_seats) {
-      console.error("❌ [API] No available seats");
-      return NextResponse.json({ error: "No available seats" }, { status: 400 });
-    }
+    // 8. Increment seats_taken on ride_template (atomic update - prevents race condition)
 
     const { data: updated, error: seatsError } = await supabase
       .from("ride_templates")

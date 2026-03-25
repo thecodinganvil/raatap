@@ -110,10 +110,14 @@ BEGIN
   -- 5. PROPER OVERLAPPING DISTANCE CALCULATION
   -- Use the actual route points to calculate shared distance
   v_overlapping_distance := calculate_overlapping_distance(
-    v_template.from_point,
-    v_template.to_point,
-    COALESCE(v_ride_request.pickup_point, v_ride_request.destination_point),
-    COALESCE(v_ride_request.destination_point, v_ride_request.drop_point)
+    ST_Y(v_template.from_point::geometry),  -- host_from_lat
+    ST_X(v_template.from_point::geometry),  -- host_from_lng
+    ST_Y(v_template.to_point::geometry),    -- host_to_lat
+    ST_X(v_template.to_point::geometry),    -- host_to_lng
+    ST_Y(COALESCE(v_ride_request.pickup_point, v_ride_request.destination_point)::geometry),  -- rider_pickup_lat
+    ST_X(COALESCE(v_ride_request.pickup_point, v_ride_request.destination_point)::geometry),  -- rider_pickup_lng
+    ST_Y(COALESCE(v_ride_request.destination_point, v_ride_request.drop_point)::geometry),   -- rider_dest_lat
+    ST_X(COALESCE(v_ride_request.destination_point, v_ride_request.drop_point)::geometry)    -- rider_dest_lng
   );
   
   -- Calculate overlap ratio based on actual overlapping distance

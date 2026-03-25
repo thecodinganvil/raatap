@@ -1,1 +1,77 @@
-[{"idx":0,"id":"28e45ac8-74ba-4a83-9288-77d74525b7ec","pod_id":"49353126-5844-44f2-b599-7a5df784b795","rider_id":"bb0f53cd-ac06-4ce2-9313-4d6d6b16ff92","ride_request_id":"bc63d223-48b0-4987-8380-fb9bf5c7926c","pickup_location":"Langar Houz Talab, Langar House North, Langar Houz, Hyderabad","pickup_lat":17.3805903,"pickup_lng":78.4158587,"pickup_point":"0101000020E61000007410CF6D9D9A5340C2ACAB5D6E613140","host_approved_at":"2026-03-18 18:34:21.427+00","rider_confirmed_at":"2026-03-18 18:34:21.427+00","status":"left","joined_at":"2026-03-18 18:34:21.427+00","left_at":"2026-03-19 14:18:23.577+00","pickup_landmark":null,"leave_reason":"host_no_show","willing_to_rejoin":true},{"idx":1,"id":"6c91cf0d-660f-4706-9805-6f76e4eea597","pod_id":"49353126-5844-44f2-b599-7a5df784b795","rider_id":"374c2efc-ccbe-4c00-bd35-bcde42216e93","ride_request_id":"cfb3a3bc-313c-461f-81e0-fea06b95a0f4","pickup_location":"Metro Station Lakdi-Ka-Pul, Red Hills, Lakdikapul, Hyderabad, Telangana","pickup_lat":17.4036427,"pickup_lng":78.4645934,"pickup_point":"0101000020E6100000FFBBF4E5BB9D5340E6C4C32055673140","host_approved_at":"2026-03-22 08:09:32.859+00","rider_confirmed_at":"2026-03-22 08:09:32.859+00","status":"active","joined_at":"2026-03-22 08:09:32.859+00","left_at":null,"pickup_landmark":null,"leave_reason":null,"willing_to_rejoin":true},{"idx":2,"id":"a06cc47a-eaf8-4f92-b54f-5d01de3c5769","pod_id":"285485b0-9f86-4776-99a8-13bc6544b103","rider_id":"bb0f53cd-ac06-4ce2-9313-4d6d6b16ff92","ride_request_id":"bc63d223-48b0-4987-8380-fb9bf5c7926c","pickup_location":"Langar Houz Talab, Langar House North, Langar Houz, Hyderabad","pickup_lat":17.3805903,"pickup_lng":78.4158587,"pickup_point":"0101000020E61000007410CF6D9D9A5340C2ACAB5D6E613140","host_approved_at":"2026-03-22 08:06:46.637+00","rider_confirmed_at":"2026-03-22 08:06:46.637+00","status":"left","joined_at":"2026-03-22 08:06:46.637+00","left_at":"2026-03-22 08:08:09.406+00","pickup_landmark":null,"leave_reason":"other","willing_to_rejoin":true},{"idx":3,"id":"c30d2157-5646-4f83-9ecf-93140cebc494","pod_id":"285485b0-9f86-4776-99a8-13bc6544b103","rider_id":"b3d58445-95da-495f-a011-274b33803ee8","ride_request_id":"baa730db-e741-4d6b-bf40-9f48e2cdd2e0","pickup_location":"Mehdipatnam bus station, Royal Colony, Mehdipatnam, Hyderabad, Telangana","pickup_lat":17.3949099,"pickup_lng":78.4404462,"pickup_point":"0101000020E610000070294245309C5340DB5DB1D018653140","host_approved_at":"2026-03-19 17:38:21.361+00","rider_confirmed_at":"2026-03-19 17:38:21.361+00","status":"left","joined_at":"2026-03-19 17:38:21.361+00","left_at":"2026-03-20 09:45:06.152+00","pickup_landmark":null,"leave_reason":"other","willing_to_rejoin":true},{"idx":4,"id":"dee051eb-f83f-47be-94ec-24fc9ee0b2ee","pod_id":"285485b0-9f86-4776-99a8-13bc6544b103","rider_id":"374c2efc-ccbe-4c00-bd35-bcde42216e93","ride_request_id":"cfb3a3bc-313c-461f-81e0-fea06b95a0f4","pickup_location":"Metro Station Lakdi-Ka-Pul, Red Hills, Lakdikapul, Hyderabad, Telangana","pickup_lat":17.4036427,"pickup_lng":78.4645934,"pickup_point":"0101000020E6100000FFBBF4E5BB9D5340E6C4C32055673140","host_approved_at":"2026-03-19 14:10:58.945+00","rider_confirmed_at":"2026-03-19 14:10:58.945+00","status":"dismissed","joined_at":"2026-03-19 14:10:58.945+00","left_at":"2026-03-20 06:14:07.468+00","pickup_landmark":null,"leave_reason":"other","willing_to_rejoin":false},{"idx":5,"id":"ec13a48e-55d6-4d7f-bfb1-f1f3222621a6","pod_id":"49353126-5844-44f2-b599-7a5df784b795","rider_id":"b3d58445-95da-495f-a011-274b33803ee8","ride_request_id":"baa730db-e741-4d6b-bf40-9f48e2cdd2e0","pickup_location":"Mehdipatnam bus station, Royal Colony, Mehdipatnam, Hyderabad, Telangana","pickup_lat":17.3949099,"pickup_lng":78.4404462,"pickup_point":"0101000020E610000070294245309C5340DB5DB1D018653140","host_approved_at":"2026-03-18 10:09:54.667+00","rider_confirmed_at":"2026-03-18 10:09:54.667+00","status":"dismissed","joined_at":"2026-03-18 10:09:54.667+00","left_at":"2026-03-19 14:12:29.883+00","pickup_landmark":null,"leave_reason":"rider_no_show","willing_to_rejoin":false}]
+[
+    {
+        "id": "9a26f19f-8c3a-4a6e-a9bf-5ce91365941f",
+        "ride_template_id": "f46c73e7-49e2-4fb6-8626-2764d8517758",
+        "host_id": "c13acba0-8753-41be-bb2c-2e8254748f99",
+        "name": null,
+        "days_active": [],
+        "departure_time": "08:00:00",
+        "origin_location": "SRINIVASA TEXTILES , Ramnagar, behind mee sewa, TRT Colony, Ram Nagar, Ramnagar, Hyderabad, Telangana",
+        "destination_location": "CBIT, Osman Sagar Road, Kokapet, Gandipet, Hyderabad, Telangana",
+        "status": "active",
+        "created_at": "2026-03-22T16:23:11.112735+00:00",
+        "dissolved_at": null,
+        "ride_template": {
+            "id": "f46c73e7-49e2-4fb6-8626-2764d8517758",
+            "seats_taken": 1,
+            "to_location": "CBIT, Osman Sagar Road, Kokapet, Gandipet, Hyderabad, Telangana",
+            "vehicle_type": "2_wheeler",
+            "from_location": "SRINIVASA TEXTILES , Ramnagar, behind mee sewa, TRT Colony, Ram Nagar, Ramnagar, Hyderabad, Telangana",
+            "days_available": [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday"
+            ],
+            "departure_time": "08:00:00",
+            "available_seats": 1
+        },
+        "pod_members": [
+            {
+                "id": "8ef90753-b369-499d-a437-9d79f813ce52",
+                "status": "active",
+                "profiles": {
+                    "id": "a1ed10c9-7b61-41b5-bc02-7e8dae57507f",
+                    "gender": "female",
+                    "full_name": "S17",
+                    "phone_number": "0000000000"
+                },
+                "rider_id": "a1ed10c9-7b61-41b5-bc02-7e8dae57507f",
+                "joined_at": "2026-03-24T17:10:50.314+00:00",
+                "ride_requests": {
+                    "id": "e01bacfc-7d7c-4cda-ae39-37b160b13fa0",
+                    "pickup_location": "Mehdipatnam bus station, Royal Colony, Mehdipatnam, Hyderabad, Telangana",
+                    "destination_location": "Mahatma Gandhi Institute of Technology (MGIT), MGIT Main Road, Kokapet, Gandipet, Telangana"
+                },
+                "pickup_landmark": null,
+                "pickup_location": "Mehdipatnam bus station, Royal Colony, Mehdipatnam, Hyderabad, Telangana",
+                "ride_request_id": "e01bacfc-7d7c-4cda-ae39-37b160b13fa0",
+                "rider_confirmed_at": "2026-03-24T17:10:50.314+00:00"
+            },
+            {
+                "id": "b176520d-9a75-41c7-8f91-25a0605c4857",
+                "status": "active",
+                "profiles": {
+                    "id": "548258f5-ceaf-488c-9683-7033b9407ae6",
+                    "gender": "male",
+                    "full_name": "S18",
+                    "phone_number": "0000000000"
+                },
+                "rider_id": "548258f5-ceaf-488c-9683-7033b9407ae6",
+                "joined_at": "2026-03-24T17:11:25.509+00:00",
+                "ride_requests": {
+                    "id": "959ae5ee-a5a2-4105-82af-3e1f9e917362",
+                    "pickup_location": "Metro Station Lakdi-Ka-Pul, Red Hills, Lakdikapul, Hyderabad, Telangana",
+                    "destination_location": "Vasavi College of Engineering, Ibrahim Bagh, Hyderabad, Telangana"
+                },
+                "pickup_landmark": null,
+                "pickup_location": "Metro Station Lakdi-Ka-Pul, Red Hills, Lakdikapul, Hyderabad, Telangana",
+                "ride_request_id": "959ae5ee-a5a2-4105-82af-3e1f9e917362",
+                "rider_confirmed_at": "2026-03-24T17:11:25.509+00:00"
+            }
+        ],
+        "actual_seats_taken": 2,
+        "actual_available_seats": -1
+    }
+]
