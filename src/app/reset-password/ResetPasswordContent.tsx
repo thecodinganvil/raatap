@@ -67,8 +67,11 @@ export default function ResetPasswordContent() {
         return;
       }
 
+      // Set the new password AND ensure the password_set flag is true
+      // This way, the login guard knows the user legitimately has a secure password
       const { error } = await supabase.auth.updateUser({
         password: password,
+        data: { password_set: true },
       });
 
       if (error) {
