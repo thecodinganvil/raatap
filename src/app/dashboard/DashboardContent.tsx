@@ -500,12 +500,35 @@ export default function DashboardContent() {
                });
                console.log("📊 [Dashboard] Match suggestions response status:", response.status);
                
-               if (response.ok && isMounted) {
-                 const suggestionsData = await response.json();
-                 console.log("🎯 [Dashboard] Received match suggestions:", suggestionsData);
-                 console.log("🎯 [Dashboard] Number of suggestions:", suggestionsData.length);
-                 setMatchSuggestions(suggestionsData);
-                 console.log("✅ [Dashboard] Match suggestions set successfully");
+                if (response.ok && isMounted) {
+                  const suggestionsData = await response.json();
+                  console.log("🎯 [Dashboard] Received match suggestions:", suggestionsData);
+                  console.log("🎯 [Dashboard] Number of suggestions:", suggestionsData.length);
+                  
+                  // Detailed logging of each match
+                  suggestionsData.forEach((match: any, index: number) => {
+                    console.log(`📦 [Match ${index + 1}]`, {
+                      id: match.id,
+                      status: match.status,
+                      overall_score: match.overall_score,
+                      pickup_distance_meters: match.pickup_distance_meters,
+                      overlapping_distance_meters: match.overlapping_distance_meters,
+                      destination_distance_meters: match.destination_distance_meters,
+                      ride_request: match.ride_request ? {
+                        pickup_location: match.ride_request.pickup_location,
+                        destination_location: match.ride_request.destination_location,
+                        pickup_landmark: match.ride_request.pickup_landmark,
+                      } : null,
+                      ride_template: match.ride_template ? {
+                        from_location: match.ride_template.from_location,
+                        to_location: match.ride_template.to_location,
+                        vehicle_type: match.ride_template.vehicle_type,
+                      } : null,
+                    });
+                  });
+                  
+                  setMatchSuggestions(suggestionsData);
+                  console.log("✅ [Dashboard] Match suggestions set successfully");
                } else if (isMounted) {
                  // Log error response
                  const errorData = await response.json();
@@ -3079,17 +3102,8 @@ function MatchQueue({
   // Determine if user is host or rider for this match
   const isHostView = currentMatch?.ride_template?.host_id === user?.id;
 
-  // Calculate cost contribution based on vehicle type and distance
-  const calculateCostContribution = () => {
-    const vehicleType = currentMatch?.ride_template?.vehicle_type || currentMatch?.ride_request?.vehicle_preference || 'any';
-
-    // Rate: ₹6/km for 4-wheeler, ₹4/km for 2-wheeler
-    const ratePerKm = vehicleType === '2_wheeler' ? 4 : 6;
-
-    return ratePerKm;
-  };
-
-  const costPerKm = calculateCostContribution();
+  // Calculate cost contribution - ₹4/km for both bike and car
+  const costPerKm = 4;
 
   // Calculate overlapping distance and estimated cost
   const overlappingDistanceKm = currentMatch?.overlapping_distance_meters 
@@ -3222,11 +3236,6 @@ function MatchQueue({
                 <p className="text-gray-500 text-sm">
                   {currentMatch.ride_request?.profiles?.gender || "N/A"} • {currentMatch.ride_request?.profiles?.institution || "N/A"}
                 </p>
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                    {Math.round(currentMatch.overall_score * 100)}% Match
-                  </span>
-                </div>
               </div>
             </div>
 
@@ -3305,7 +3314,7 @@ function MatchQueue({
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Cost Contribution</p>
-                  <p className="text-gray-700">₹{costPerKm}/km <span className="text-xs text-gray-400">({vehicleType === '2_wheeler' ? '2-wheeler' : '4-wheeler'} rate)</span></p>
+                  <p className="text-gray-700">₹{costPerKm}/km</p>
                 </div>
               </div>
             </div>
@@ -3342,11 +3351,6 @@ function MatchQueue({
                 <p className="text-gray-500 text-sm">
                   {currentMatch.ride_template?.vehicle_type === '2_wheeler' ? '🏍️ Bike' : '🚗 Car'} • {currentMatch.ride_template?.profiles?.gender || "N/A"} • {currentMatch.ride_template?.profiles?.institution || "N/A"}
                 </p>
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                    {Math.round(currentMatch.overall_score * 100)}% Match
-                  </span>
-                </div>
               </div>
             </div>
 
@@ -3409,7 +3413,6 @@ function MatchQueue({
                       ? `₹${estimatedCost} for ${overlappingDistanceKm} km`
                       : `₹${costPerKm}/km`
                     }
-                    <span className="text-xs text-gray-400"> ({vehicleType === '2_wheeler' ? '2-wheeler' : '4-wheeler'} rate)</span>
                   </p>
                 </div>
               </div>

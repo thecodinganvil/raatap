@@ -141,10 +141,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (templateData.seats_taken >= templateData.available_seats) {
-      console.error("❌ [API] No available seats");
+      console.error("❌ [API] No available seats - pod is full");
       // Delete the match suggestion since rider tried to confirm but failed
       await supabase.from("match_suggestions").delete().eq("id", matchId);
-      return NextResponse.json({ error: "No available seats" }, { status: 400 });
+      return NextResponse.json({ 
+        error: "This ride is full. The host has reached their maximum seat capacity.",
+        code: "NO_SEATS_AVAILABLE"
+      }, { status: 400 });
     }
 
     // 5. Fetch ride_request to get all required fields
@@ -213,6 +216,12 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`✅ [API] Updated seats_taken to ${templateData.seats_taken + 1}`);
+
+    // 9. Update ride_request status to 'matched' so rider won't be matched again
+    await supabase
+      .from("ride_requests")
+      .update({ status: "matched" })
+      .eq("id", match.ride_request_id);
 
     console.log("🎉 [API] Ride successfully confirmed by Rider! Pod Flow complete.");
 
