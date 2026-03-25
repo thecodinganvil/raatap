@@ -59,16 +59,16 @@ export default function VerifyEmailContent() {
     setResendSuccess(false);
 
     try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-        },
+      const response = await fetch("/api/auth/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
       });
 
-      if (error) {
-        setError(error.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Failed to resend verification link");
       } else {
         setResendSuccess(true);
       }
@@ -137,7 +137,7 @@ export default function VerifyEmailContent() {
             We&apos;ve sent a verification link to{" "}
             <strong className="text-[#171717]">{email}</strong>.
             <br />
-            Please check your inbox and click the link to verify your account.
+            Click the link to verify your email, then you&apos;ll set your password to complete signup.
           </p>
 
           {/* Error Message */}

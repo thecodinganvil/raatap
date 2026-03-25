@@ -52,11 +52,11 @@ export async function GET(request: Request) {
 
     // Check the type of callback
     if (type === "signup" || type === "email") {
-      // Email verification completed
+      // Email verification completed — redirect to set-password page
+      // so user can create their real password (signup only asked for email)
       if (data.user?.email_confirmed_at) {
-        // User verified their email, redirect to dashboard
         return NextResponse.redirect(
-          new URL("/dashboard?verified=true", requestUrl.origin),
+          new URL("/set-password?new=true", requestUrl.origin),
         );
       }
     }
