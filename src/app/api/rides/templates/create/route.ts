@@ -172,11 +172,29 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        // BUG FIX: Extract rider's pickup/destination coords from match (geography) - was using host's coords
+        // match.pickup_point and match.destination_point are GEOGRAPHY, we need to extract lat/lng
+        const riderPickupLat = match.pickup_point ? (match.pickup_point as any).coordinates[1] : null;
+        const riderPickupLng = match.pickup_point ? (match.pickup_point as any).coordinates[0] : null;
+        const riderDestLat = match.destination_point ? (match.destination_point as any).coordinates[1] : null;
+        const riderDestLng = match.destination_point ? (match.destination_point as any).coordinates[0] : null;
+
+        console.log(`[Template API] DEBUG - Match details:`, {
+          hostCoords: { from: profile.from_lat, from_lng: profile.from_lng, to: profile.to_lat, to_lng: profile.to_lng },
+          riderCoords: { pickupLat: riderPickupLat, pickupLng: riderPickupLng, destLat: riderDestLat, destLng: riderDestLng },
+          riderTotalJourneyMeters: match.rider_total_journey_meters
+        });
+
+        if (!riderPickupLat || !riderDestLat) {
+          console.warn(`[Template API] Could not extract rider coordinates from match, skipping...`);
+          continue;
+        }
+
         const score = calculateMatchScore({
           hostFrom: { lat: profile.from_lat, lng: profile.from_lng },
           hostTo: { lat: profile.to_lat, lng: profile.to_lng },
-          riderPickup: { lat: profile.from_lat, lng: profile.from_lng },
-          riderDestination: { lat: profile.to_lat, lng: profile.to_lng },
+          riderPickup: { lat: riderPickupLat, lng: riderPickupLng },
+          riderDestination: { lat: riderDestLat, lng: riderDestLng },
           riderTotalJourneyMeters: match.rider_total_journey_meters,
           hostGenderPreference: profile.comfortable_with || 'both',
           riderGenderPreference: riderProfile?.comfortable_with || 'both',
