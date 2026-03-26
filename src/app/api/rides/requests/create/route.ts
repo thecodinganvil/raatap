@@ -1,11 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculateMatchScore } from "@/lib/matching";
+import { getRouteGeometry } from "@/lib/osrm";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+/**
+ * Calculate length of a LineString from coordinates (in meters)
+ * Uses Haversine formula for each segment
+ */
+function calculateLineStringLength(coords: [number, number][]): number {
+  const R = 6371000; // Earth radius in meters
+  let totalLength = 0;
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const [lng1, lat1] = coords[i];
+    const [lng2, lat2] = coords[i + 1];
+
+    const lat1Rad = lat1 * Math.PI / 180;
+    const lat2Rad = lat2 * Math.PI / 180;
+    const deltaLat = (lat2 - lat1) * Math.PI / 180;
+    const deltaLng = (lng2 - lng1) * Math.PI / 180;
+
+    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+      Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    totalLength += R * c;
+  }
+
+  return totalLength;
+}
 
 /**
  * Create a ride request (Rider)
@@ -52,7 +81,30 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Request API] Fetched Rider coordinates from profiles table`);
 
-    // 2. Insert Ride Request
+    // 2. Fetch OSRM route geometry for rider's journey
+    console.log(`[Request API] Fetching OSRM route geometry for rider's journey...`);
+    const riderRouteGeometry = await getRouteGeometry(
+      { lat: profile.from_lat, lng: profile.from_lng },
+      { lat: profile.to_lat, lng: profile.to_lng }
+    );
+
+    let routeGeometryWkt: string | null = null;
+    let routeDistanceMeters: number | null = null;
+
+    if (riderRouteGeometry) {
+      // Convert GeoJSON LineString to WKT
+      const coords = riderRouteGeometry.coordinates as [number, number][];
+      const lineString = coords.map(c => `${c[0]} ${c[1]}`).join(',');
+      routeGeometryWkt = `LINESTRING(${lineString})`;
+      
+      // Calculate route distance from geometry
+      routeDistanceMeters = calculateLineStringLength(coords);
+      console.log(`[Request API] OSRM route distance: ${routeDistanceMeters.toFixed(0)} meters`);
+    } else {
+      console.warn(`[Request API] OSRM route fetch failed, will use straight-line distance`);
+    }
+
+    // 3. Insert Ride Request with geometry
     const { data: requestRecord, error: insertError } = await supabase
       .from("ride_requests")
       .insert({
@@ -66,6 +118,8 @@ export async function POST(request: NextRequest) {
         destination_lat: profile.to_lat,
         destination_lng: profile.to_lng,
         destination_point: `POINT(${profile.to_lng} ${profile.to_lat})`,
+        route_geometry: routeGeometryWkt ? `SRID=4326;${routeGeometryWkt}` : null,
+        route_distance_meters: routeDistanceMeters,
         preferred_arrival_time: preferredArrivalTime,
         time_flexibility_mins: timeFlexibilityMins,
         days_needed: profile.days_of_commute,
@@ -101,7 +155,7 @@ export async function POST(request: NextRequest) {
 
     if (matches && matches.length > 0) {
       console.log(`[Request API] Found ${matches.length} overlapping routes. Generating scores...`);
-      
+
       const suggestionsToInsert = [];
 
       for (const match of matches) {
@@ -112,15 +166,37 @@ export async function POST(request: NextRequest) {
           .eq("id", match.host_id)
           .single();
 
+        // Fetch Host's template coordinates (BUG FIX: was using rider's coords for both)
+        const { data: hostTemplate } = await supabase
+          .from("ride_templates")
+          .select("from_lat, from_lng, to_lat, to_lng")
+          .eq("id", match.template_id)
+          .single();
+
+        console.log(`[Request API] DEBUG - Match details:`, {
+          hostTemplateCoords: hostTemplate,
+          riderCoords: { from: profile.from_lat, from_lng: profile.from_lng, to: profile.to_lat, to_lng: profile.to_lng },
+          riderTotalJourneyMeters: match.rider_total_journey_meters
+        });
+
+        if (!hostTemplate) {
+          console.warn(`[Request API] Could not find host template ${match.template_id}, skipping...`);
+          continue;
+        }
+
+        // Use OSRM-calculated rider route distance if available, fallback to DB value
+        const riderJourneyDistance = routeDistanceMeters || match.rider_total_journey_meters;
+        console.log(`[Request API] Rider journey: ${riderJourneyDistance.toFixed(0)}m (OSRM: ${!!routeDistanceMeters})`);
+
         const score = calculateMatchScore({
-          hostFrom: { lat: profile.from_lat, lng: profile.from_lng },
-          hostTo: { lat: profile.to_lat, lng: profile.to_lng },
+          hostFrom: { lat: hostTemplate.from_lat, lng: hostTemplate.from_lng },
+          hostTo: { lat: hostTemplate.to_lat, lng: hostTemplate.to_lng },
           riderPickup: { lat: profile.from_lat, lng: profile.from_lng },
           riderDestination: { lat: profile.to_lat, lng: profile.to_lng },
-          riderTotalJourneyMeters: match.rider_total_journey_meters,
+          riderTotalJourneyMeters: riderJourneyDistance,
           hostGenderPreference: hostProfile?.comfortable_with || 'both',
           riderGenderPreference: genderPreference,
-          maxDetourMeters: 2000, 
+          maxDetourMeters: 2000,
           maxDestinationMeters: 1000
         });
 

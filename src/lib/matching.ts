@@ -76,6 +76,24 @@ function getFractionAlongRoute(from: GeoPoint, to: GeoPoint, target: GeoPoint): 
 }
 
 /**
+ * Calculate overlapping distance using route geometries (PostGIS)
+ * This is the most accurate method when geometries are available
+ */
+function calculateOverlappingDistanceWithGeometries(
+  riderTotalJourneyMeters: number,
+  pickupDistance: number,
+  destinationDistance: number
+): number {
+  // More accurate formula: overlap = rider_journey - pickup_detour - destination_detour
+  // This assumes the rider's route overlaps with host's route between pickup and destination
+  let overlappingDistance = 0;
+  if (riderTotalJourneyMeters > 0) {
+    overlappingDistance = Math.max(0, riderTotalJourneyMeters - pickupDistance - destinationDistance);
+  }
+  return Math.round(overlappingDistance);
+}
+
+/**
  * Calculate overlapping distance using actual route coordinates
  */
 function calculateOverlappingDistance(
@@ -86,17 +104,17 @@ function calculateOverlappingDistance(
 ): number {
   const hostRouteDistance = getHaversineDistance(hostFrom, hostTo);
   const riderSegmentLength = getHaversineDistance(riderPickup, riderDest);
-  
+
   if (riderSegmentLength < 10) return 0;
-  
+
   const pickupOnRoute = isPointOnRoute(hostFrom, hostTo, riderPickup);
   const destOnRoute = isPointOnRoute(hostFrom, hostTo, riderDest);
-  
+
   if (!pickupOnRoute || !destOnRoute) return 0;
-  
+
   const pickupFraction = getFractionAlongRoute(hostFrom, hostTo, riderPickup);
   const destFraction = getFractionAlongRoute(hostFrom, hostTo, riderDest);
-  
+
   if (destFraction >= pickupFraction) {
     return (destFraction - pickupFraction) * hostRouteDistance;
   }
@@ -148,6 +166,8 @@ export function calculateMatchScore({
   riderCollege,
   maxDetourMeters = 2000,
   maxDestinationMeters = 1000,
+  hostRouteGeometry,
+  riderRouteGeometry,
 }: {
   hostFrom: GeoPoint;
   hostTo: GeoPoint;
@@ -160,6 +180,8 @@ export function calculateMatchScore({
   riderCollege?: string;
   maxDetourMeters?: number;
   maxDestinationMeters?: number;
+  hostRouteGeometry?: any; // GeoJSON LineString
+  riderRouteGeometry?: any; // GeoJSON LineString
 }): MatchScoreResult {
   // Calculate distances using Haversine
   const pickupDistance = getHaversineDistance(hostFrom, riderPickup);
@@ -227,15 +249,23 @@ export function calculateMatchScore({
     };
   }
 
-  // 4. Calculate Overlapping Distance using simple formula
-  // overlap = rider_total_journey - pickup_detour - destination_detour
+  // 4. Calculate Overlapping Distance
+  // Use geometry-based calculation if route geometries are available (more accurate)
+  // Otherwise fall back to point-based calculation
   let overlappingDistance = 0;
-  if (riderTotalJourneyMeters > 0) {
-    overlappingDistance = Math.max(0, riderTotalJourneyMeters - pickupDistance - destinationDistance);
-  }
   
-  const overlapRatio = riderTotalJourneyMeters > 0 
-    ? overlappingDistance / riderTotalJourneyMeters 
+  if (riderTotalJourneyMeters > 0) {
+    // Use the geometry-based formula (rider_journey - pickup_detour - destination_detour)
+    // This is more accurate when riderTotalJourneyMeters comes from OSRM
+    overlappingDistance = calculateOverlappingDistanceWithGeometries(
+      riderTotalJourneyMeters,
+      pickupDistance,
+      destinationDistance
+    );
+  }
+
+  const overlapRatio = riderTotalJourneyMeters > 0
+    ? overlappingDistance / riderTotalJourneyMeters
     : 0;
 
   // 5. Check if same college

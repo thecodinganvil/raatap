@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
           to_location,
           vehicle_type,
           available_seats,
+          seats_taken,
           status,
           profiles:profiles!ride_templates_host_id_fkey(
             id,
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
           )
         )
       `)
-      .in("status", ["pending_host_approval", "pending_rider_approval", "pending"]) // Keep 'pending' for legacy compat temporarily
+      .in("status", ["pending_host_approval", "pending_rider_approval", "pending"])
       .order("overall_score", { ascending: false });
 
     if (error) {
@@ -82,17 +83,24 @@ export async function POST(request: NextRequest) {
     // Filter matches based on Host-First rules:
     // Hosts only see 'pending_host_approval' (or legacy 'pending')
     // Riders ONLY see 'pending_rider_approval'
+    // Also filter out matches where host has no available seats
     const userSuggestions = (suggestions || []).filter(
       (suggestion: any) => {
         const isHost = suggestion.ride_template?.host_id === userId;
         const isRider = suggestion.ride_request?.rider_id === userId;
 
+        // Check seat availability
+        const availableSeats = suggestion.ride_template?.available_seats || 1;
+        const seatsTaken = suggestion.ride_template?.seats_taken || 0;
+        const hasSeatsAvailable = seatsTaken < availableSeats;
+
         if (isHost && (suggestion.status === 'pending_host_approval' || suggestion.status === 'pending')) {
           return true;
         }
 
+        // For riders: only show matches where host has seats available
         if (isRider && suggestion.status === 'pending_rider_approval') {
-          return true;
+          return hasSeatsAvailable;
         }
 
         return false;

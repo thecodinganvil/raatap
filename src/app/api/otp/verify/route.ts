@@ -8,6 +8,34 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+/**
+ * Calculate length of a LineString from coordinates (in meters)
+ * Uses Haversine formula for each segment
+ */
+function calculateLineStringLength(coords: [number, number][]): number {
+  const R = 6371000; // Earth radius in meters
+  let totalLength = 0;
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const [lng1, lat1] = coords[i];
+    const [lng2, lat2] = coords[i + 1];
+
+    const lat1Rad = lat1 * Math.PI / 180;
+    const lat2Rad = lat2 * Math.PI / 180;
+    const deltaLat = (lat2 - lat1) * Math.PI / 180;
+    const deltaLng = (lng2 - lng1) * Math.PI / 180;
+
+    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+      Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    totalLength += R * c;
+  }
+
+  return totalLength;
+}
+
 export async function POST(request: NextRequest) {
   console.log("[OTP Verify] ============================================");
   console.log("[OTP Verify] Received OTP verification request");
@@ -264,8 +292,26 @@ export async function POST(request: NextRequest) {
     // Create ride_request if user is a rider and no request exists
     if (profile.prefer_taking_ride && !existingRequest) {
       console.log("[OTP Verify] User is a RIDER, creating ride_request");
-      
+
       if (profile.from_lat && profile.from_lng && profile.to_lat && profile.to_lng) {
+        // Fetch OSRM route geometry for rider's journey
+        console.log("[OTP Verify] Fetching OSRM route geometry for rider...");
+        const riderRouteGeometry = await getRouteGeometry(
+          { lat: profile.from_lat, lng: profile.from_lng },
+          { lat: profile.to_lat, lng: profile.to_lng }
+        );
+
+        let routeGeometryWkt: string | null = null;
+        let routeDistanceMeters: number | null = null;
+
+        if (riderRouteGeometry) {
+          const coords = riderRouteGeometry.coordinates as [number, number][];
+          const lineString = coords.map(c => `${c[0]} ${c[1]}`).join(',');
+          routeGeometryWkt = `LINESTRING(${lineString})`;
+          routeDistanceMeters = calculateLineStringLength(coords);
+          console.log(`[OTP Verify] OSRM route distance: ${routeDistanceMeters.toFixed(0)}m`);
+        }
+
         const { data: request, error: requestError } = await supabase
           .from("ride_requests")
           .insert({
@@ -278,6 +324,8 @@ export async function POST(request: NextRequest) {
             destination_lat: profile.to_lat,
             destination_lng: profile.to_lng,
             destination_point: `POINT(${profile.to_lng} ${profile.to_lat})`,
+            route_geometry: routeGeometryWkt ? `SRID=4326;${routeGeometryWkt}` : null,
+            route_distance_meters: routeDistanceMeters,
             departure_time: profile.leave_home_time,
             return_time: profile.leave_college_time || null,
             days_available: profile.days_of_commute,
@@ -319,8 +367,8 @@ export async function POST(request: NextRequest) {
                 .eq("id", match.template_id)
                 .single();
               
-              const remainingSeats = hostTemplate 
-                ? (hostTemplate.available_seats - (hostTemplate.seats_taken || 0)) 
+              const remainingSeats = hostTemplate
+                ? (hostTemplate.available_seats - (hostTemplate.seats_taken || 0))
                 : 0;
 
               if (remainingSeats <= 0) continue; // Skip hosts with no seats
@@ -331,12 +379,16 @@ export async function POST(request: NextRequest) {
                 .eq("id", match.host_id)
                 .single();
 
+              // Use OSRM-calculated rider route distance if available
+              const riderJourneyDistance = routeDistanceMeters || match.rider_total_journey_meters;
+              console.log(`[OTP Verify] Rider journey: ${riderJourneyDistance.toFixed(0)}m (OSRM: ${!!routeDistanceMeters})`);
+
               const score = calculateMatchScore({
                 hostFrom: { lat: profile.from_lat, lng: profile.from_lng },
                 hostTo: { lat: profile.to_lat, lng: profile.to_lng },
                 riderPickup: { lat: profile.from_lat, lng: profile.from_lng },
                 riderDestination: { lat: profile.to_lat, lng: profile.to_lng },
-                riderTotalJourneyMeters: match.rider_total_journey_meters,
+                riderTotalJourneyMeters: riderJourneyDistance,
                 hostGenderPreference: hostProfile?.comfortable_with || 'both',
                 riderGenderPreference: profile.comfortable_with || 'both',
                 hostCollege: hostProfile?.institution,
