@@ -616,6 +616,19 @@ export default function DashboardContent() {
       );
 
       if (authUser) {
+        // Check if email user has set their password
+        // OAuth users (Google) don't need this check
+        const provider = authUser.app_metadata?.provider;
+        const isOAuthUser = provider && provider !== "email";
+        const passwordSet = authUser.user_metadata?.password_set === true;
+
+        if (!isOAuthUser && !passwordSet) {
+          // User hasn't set their password yet — redirect to set-password
+          console.log("User hasn't set password, redirecting to /set-password");
+          router.push("/set-password");
+          return;
+        }
+
         setUser(authUser);
 
         // Check if user has already submitted
@@ -647,6 +660,17 @@ export default function DashboardContent() {
       console.log("Dashboard checkUser - session:", session?.user?.email);
 
       if (session?.user) {
+        // Same password check for fallback session path
+        const fallbackProvider = session.user.app_metadata?.provider;
+        const fallbackIsOAuth = fallbackProvider && fallbackProvider !== "email";
+        const fallbackPasswordSet = session.user.user_metadata?.password_set === true;
+
+        if (!fallbackIsOAuth && !fallbackPasswordSet) {
+          console.log("Fallback: User hasn't set password, redirecting to /set-password");
+          router.push("/set-password");
+          return;
+        }
+
         setUser(session.user);
 
         // Check if user has already submitted

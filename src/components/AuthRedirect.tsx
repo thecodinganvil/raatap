@@ -31,10 +31,19 @@ export default function AuthRedirect() {
           });
           
           if (data.session) {
-            console.log("Session set successfully, redirecting to dashboard...");
+            console.log("Session set successfully, checking password...");
             // Clear the hash from URL before redirecting
             window.history.replaceState(null, "", window.location.pathname);
-            window.location.href = "/dashboard";
+
+            const provider = data.session.user?.app_metadata?.provider;
+            const isOAuth = provider && provider !== "email";
+            const passwordSet = data.session.user?.user_metadata?.password_set === true;
+
+            if (!isOAuth && !passwordSet) {
+              window.location.href = "/set-password";
+            } else {
+              window.location.href = "/dashboard";
+            }
             return;
           }
           
@@ -50,8 +59,16 @@ export default function AuthRedirect() {
       } = await supabase.auth.getSession();
 
       if (session?.user) {
-        console.log("Session found, redirecting to dashboard...");
-        window.location.href = "/dashboard";
+        const provider = session.user.app_metadata?.provider;
+        const isOAuth = provider && provider !== "email";
+        const passwordSet = session.user.user_metadata?.password_set === true;
+
+        if (!isOAuth && !passwordSet) {
+          window.location.href = "/set-password";
+        } else {
+          console.log("Session found, redirecting to dashboard...");
+          window.location.href = "/dashboard";
+        }
       }
     };
 
@@ -63,7 +80,15 @@ export default function AuthRedirect() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event);
       if (event === "SIGNED_IN" && session?.user) {
-        window.location.href = "/dashboard";
+        const provider = session.user.app_metadata?.provider;
+        const isOAuth = provider && provider !== "email";
+        const passwordSet = session.user.user_metadata?.password_set === true;
+
+        if (!isOAuth && !passwordSet) {
+          window.location.href = "/set-password";
+        } else {
+          window.location.href = "/dashboard";
+        }
       }
     });
 

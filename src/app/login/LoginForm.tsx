@@ -29,6 +29,15 @@ export default function LoginForm() {
       } = await supabase.auth.getSession();
 
       if (session?.user) {
+        // Check password_set for email users
+        const provider = session.user.app_metadata?.provider;
+        const isOAuth = provider && provider !== "email";
+        const passwordSet = session.user.user_metadata?.password_set === true;
+
+        if (!isOAuth && !passwordSet) {
+          window.location.href = "/set-password";
+          return;
+        }
         console.log("Session found, redirecting to dashboard...");
         window.location.href = "/dashboard";
         return;
@@ -45,8 +54,16 @@ export default function LoginForm() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Login auth state changed:", event, session?.user?.email);
       if (event === "SIGNED_IN" && session?.user) {
-        console.log("User signed in, redirecting to dashboard...");
-        window.location.href = "/dashboard";
+        const provider = session.user.app_metadata?.provider;
+        const isOAuth = provider && provider !== "email";
+        const passwordSet = session.user.user_metadata?.password_set === true;
+
+        if (!isOAuth && !passwordSet) {
+          window.location.href = "/set-password";
+        } else {
+          console.log("User signed in, redirecting to dashboard...");
+          window.location.href = "/dashboard";
+        }
       }
     });
 
