@@ -792,6 +792,65 @@ export default function DashboardContent() {
     setErrors({});
   };
 
+  const getFreshUserId = async (): Promise<string | null> => {
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !authUser?.id) {
+      console.error("Unable to resolve authenticated user:", authError);
+      setOtpError("Session expired. Please sign in again.");
+      router.push("/signup");
+      return null;
+    }
+
+    if (!user || user.id !== authUser.id) {
+      setUser(authUser);
+    }
+
+    return authUser.id;
+  };
+
+  const upsertProfileRecord = async (
+    userId: string,
+    emailVerified: boolean,
+    institutionalEmailValue: string | null,
+  ) => {
+    const finalInstitution =
+      formData.institution === "Other" ? customCollege : formData.institution;
+
+    return supabase.from("profiles").upsert(
+      {
+        id: userId,
+        full_name: formData.full_name,
+        phone_number: formData.phone_number,
+        age: parseInt(formData.age),
+        gender: formData.gender,
+        student_id: formData.student_id,
+        institution: finalInstitution,
+        institutional_email: institutionalEmailValue,
+        from_location: formData.from_location,
+        pickup_landmark: formData.landmark || null,
+        to_location: formData.to_location,
+        from_lat: formData.from_lat,
+        from_lng: formData.from_lng,
+        to_lat: formData.to_lat,
+        to_lng: formData.to_lng,
+        leave_home_time: formData.leave_home_time,
+        leave_college_time: formData.leave_college_time,
+        days_of_commute: formData.days_of_commute,
+        prefer_hosting: formData.prefer_hosting,
+        prefer_taking_ride: formData.prefer_taking_ride,
+        vehicle_type: formData.prefer_hosting ? formData.vehicle_type : null,
+        comfortable_with: formData.comfortable_with,
+        agreed_to_terms: formData.agreed_to_terms,
+        email_verified: emailVerified,
+      },
+      { onConflict: "id" },
+    );
+  };
+
   const handleSendOTP = async () => {
     // Validate institutional email
     if (!institutionalEmail) {
@@ -822,16 +881,36 @@ export default function DashboardContent() {
       return;
     }
 
+    const freshUserId = await getFreshUserId();
+    if (!freshUserId) {
+      return;
+    }
+
     setOtpLoading(true);
     setOtpError("");
 
     try {
+      const { error: profileSaveError } = await upsertProfileRecord(
+        freshUserId,
+        false,
+        institutionalEmail,
+      );
+
+      if (profileSaveError) {
+        console.error("Error saving profile before OTP send:", profileSaveError);
+        setOtpError(
+          `Failed to save profile: ${profileSaveError.message}. Please try again.`,
+        );
+        setOtpLoading(false);
+        return;
+      }
+
       const response = await fetch("/api/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: institutionalEmail,
-          userId: user?.id,
+          userId: freshUserId,
         }),
       });
 
@@ -856,6 +935,11 @@ export default function DashboardContent() {
   const handleResendOTP = async () => {
     if (resendTimer > 0) return;
 
+    const freshUserId = await getFreshUserId();
+    if (!freshUserId) {
+      return;
+    }
+
     setOtpLoading(true);
     setOtpError("");
 
@@ -865,7 +949,7 @@ export default function DashboardContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: institutionalEmail,
-          userId: user?.id,
+          userId: freshUserId,
         }),
       });
 
@@ -894,12 +978,18 @@ export default function DashboardContent() {
     setOtpError("");
 
     try {
+      const freshUserId = await getFreshUserId();
+      if (!freshUserId) {
+        setOtpLoading(false);
+        return;
+      }
+
       const response = await fetch("/api/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           otp: otpCode,
-          userId: user?.id,
+          userId: freshUserId,
         }),
       });
 
@@ -913,40 +1003,14 @@ export default function DashboardContent() {
 
       // OTP verified, now save the profile
       setSubmitting(true);
-      // Use custom college if "Other" is selected
-      const finalInstitution = formData.institution === "Other" ? customCollege : formData.institution;
 
       // Calculate available seats based on vehicle type (2-wheeler: 1, 4-wheeler: 3)
       const availableSeats = formData.vehicle_type === '2_wheeler' ? 1 : 3;
 
-      const { error: insertError } = await supabase.from("profiles").upsert(
-        {
-          id: user?.id,
-          full_name: formData.full_name,
-          phone_number: formData.phone_number,
-          age: parseInt(formData.age),
-          gender: formData.gender,
-          student_id: formData.student_id,
-          institution: finalInstitution,
-          institutional_email: institutionalEmail,
-          from_location: formData.from_location,
-          pickup_landmark: formData.landmark || null,
-          to_location: formData.to_location,
-          from_lat: formData.from_lat,
-          from_lng: formData.from_lng,
-          to_lat: formData.to_lat,
-          to_lng: formData.to_lng,
-          leave_home_time: formData.leave_home_time,
-          leave_college_time: formData.leave_college_time,
-          days_of_commute: formData.days_of_commute,
-          prefer_hosting: formData.prefer_hosting,
-          prefer_taking_ride: formData.prefer_taking_ride,
-          vehicle_type: formData.prefer_hosting ? formData.vehicle_type : null,
-          comfortable_with: formData.comfortable_with,
-          agreed_to_terms: formData.agreed_to_terms,
-          email_verified: true,
-        },
-        { onConflict: "id" },
+      const { error: insertError } = await upsertProfileRecord(
+        freshUserId,
+        true,
+        institutionalEmail,
       );
 
       if (insertError) {
@@ -973,7 +1037,7 @@ export default function DashboardContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: user?.id,
+            userId: freshUserId,
             vehicleType: formData.vehicle_type,
             availableSeats: availableSeats,
             maxDetourMeters: 2000,
@@ -1000,7 +1064,7 @@ export default function DashboardContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: user?.id,
+            userId: freshUserId,
             preferredArrivalTime: formData.leave_college_time,
             timeFlexibilityMins: 30,
             vehiclePreference: 'any',
@@ -1038,40 +1102,19 @@ export default function DashboardContent() {
     setOtpError("");
 
     try {
-      // Use custom college if "Other" is selected
-      const finalInstitution = formData.institution === "Other" ? customCollege : formData.institution;
+      const freshUserId = await getFreshUserId();
+      if (!freshUserId) {
+        setSubmitting(false);
+        return;
+      }
 
       // Calculate available seats based on vehicle type (2-wheeler: 1, 4-wheeler: 3)
       const availableSeats = formData.vehicle_type === '2_wheeler' ? 1 : 3;
 
-      const { error: insertError } = await supabase.from("profiles").upsert(
-        {
-          id: user?.id,
-          full_name: formData.full_name,
-          phone_number: formData.phone_number,
-          age: parseInt(formData.age),
-          gender: formData.gender,
-          student_id: formData.student_id,
-          institution: finalInstitution,
-          institutional_email: null,
-          from_location: formData.from_location,
-          pickup_landmark: formData.landmark || null,
-          to_location: formData.to_location,
-          from_lat: formData.from_lat,
-          from_lng: formData.from_lng,
-          to_lat: formData.to_lat,
-          to_lng: formData.to_lng,
-          leave_home_time: formData.leave_home_time,
-          leave_college_time: formData.leave_college_time,
-          days_of_commute: formData.days_of_commute,
-          prefer_hosting: formData.prefer_hosting,
-          prefer_taking_ride: formData.prefer_taking_ride,
-          vehicle_type: formData.prefer_hosting ? formData.vehicle_type : null,
-          comfortable_with: formData.comfortable_with,
-          agreed_to_terms: formData.agreed_to_terms,
-          email_verified: false,
-        },
-        { onConflict: "id" },
+      const { error: insertError } = await upsertProfileRecord(
+        freshUserId,
+        false,
+        null,
       );
 
       if (insertError) {
@@ -1093,7 +1136,7 @@ export default function DashboardContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: user?.id,
+            userId: freshUserId,
             vehicleType: formData.vehicle_type,
             availableSeats: availableSeats,
             maxDetourMeters: 2000,
@@ -1120,7 +1163,7 @@ export default function DashboardContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: user?.id,
+            userId: freshUserId,
             preferredArrivalTime: formData.leave_college_time,
             timeFlexibilityMins: 30,
             vehiclePreference: 'any',
