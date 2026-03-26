@@ -8,6 +8,34 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+/**
+ * Calculate length of a LineString from coordinates (in meters)
+ * Uses Haversine formula for each segment
+ */
+function calculateLineStringLength(coords: [number, number][]): number {
+  const R = 6371000; // Earth radius in meters
+  let totalLength = 0;
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const [lng1, lat1] = coords[i];
+    const [lng2, lat2] = coords[i + 1];
+
+    const lat1Rad = lat1 * Math.PI / 180;
+    const lat2Rad = lat2 * Math.PI / 180;
+    const deltaLat = (lat2 - lat1) * Math.PI / 180;
+    const deltaLng = (lng2 - lng1) * Math.PI / 180;
+
+    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+      Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    totalLength += R * c;
+  }
+
+  return totalLength;
+}
+
 export async function POST(req: NextRequest) {
   console.log("[Admin Verify] ============================================");
   console.log("[Admin Verify] Received verification request");
@@ -260,9 +288,26 @@ export async function POST(req: NextRequest) {
       // Create ride_request if user is a rider
       if (profile.prefer_taking_ride) {
         console.log("[Admin Verify] User is a RIDER, attempting to create ride_request");
-        
+
         if (profile.from_lat && profile.from_lng && profile.to_lat && profile.to_lng) {
-          console.log("[Admin Verify] Inserting ride_request...");
+          console.log("[Admin Verify] Fetching OSRM route geometry for rider...");
+          
+          // Fetch OSRM route geometry for rider's journey
+          const riderRouteGeometry = await getRouteGeometry(
+            { lat: profile.from_lat, lng: profile.from_lng },
+            { lat: profile.to_lat, lng: profile.to_lng }
+          );
+
+          let routeGeometryWkt: string | null = null;
+          let routeDistanceMeters: number | null = null;
+
+          if (riderRouteGeometry) {
+            const coords = riderRouteGeometry.coordinates as [number, number][];
+            const lineString = coords.map(c => `${c[0]} ${c[1]}`).join(',');
+            routeGeometryWkt = `LINESTRING(${lineString})`;
+            routeDistanceMeters = calculateLineStringLength(coords);
+            console.log(`[Admin Verify] OSRM route distance: ${routeDistanceMeters.toFixed(0)}m`);
+          }
 
           const { data: request, error: requestError } = await supabase
             .from("ride_requests")
@@ -276,6 +321,8 @@ export async function POST(req: NextRequest) {
               destination_lat: profile.to_lat,
               destination_lng: profile.to_lng,
               destination_point: `POINT(${profile.to_lng} ${profile.to_lat})`,
+              route_geometry: routeGeometryWkt ? `SRID=4326;${routeGeometryWkt}` : null,
+              route_distance_meters: routeDistanceMeters,
               departure_time: profile.leave_home_time,
               return_time: profile.leave_college_time || null,
               days_available: profile.days_of_commute,
