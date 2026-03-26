@@ -51,6 +51,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { data: authUserData, error: authUserError } =
+      await supabase.auth.admin.getUserById(userId);
+
+    if (authUserError || !authUserData?.user) {
+      console.error("[OTP Verify] Invalid userId:", authUserError);
+      return NextResponse.json(
+        { error: "Session not found for this user. Please sign in again." },
+        { status: 401 },
+      );
+    }
+
     const { data: otpRecord, error: fetchError } = await supabase
       .from("email_otps")
       .select("*")
