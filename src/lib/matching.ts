@@ -168,6 +168,8 @@ export function calculateMatchScore({
   maxDestinationMeters = 1000,
   hostRouteGeometry,
   riderRouteGeometry,
+  pickupDistanceOverride,
+  destinationDistanceOverride,
 }: {
   hostFrom: GeoPoint;
   hostTo: GeoPoint;
@@ -180,12 +182,13 @@ export function calculateMatchScore({
   riderCollege?: string;
   maxDetourMeters?: number;
   maxDestinationMeters?: number;
-  hostRouteGeometry?: any; // GeoJSON LineString
-  riderRouteGeometry?: any; // GeoJSON LineString
+  hostRouteGeometry?: any;
+  riderRouteGeometry?: any;
+  pickupDistanceOverride?: number;
+  destinationDistanceOverride?: number;
 }): MatchScoreResult {
-  // Calculate distances using Haversine
-  const pickupDistance = getHaversineDistance(hostFrom, riderPickup);
-  const destinationDistance = getHaversineDistance(hostTo, riderDestination);
+  const pickupDistance = pickupDistanceOverride ?? getHaversineDistance(hostFrom, riderPickup);
+  const destinationDistance = destinationDistanceOverride ?? getHaversineDistance(hostTo, riderDestination);
   const hostRouteDistance = getHaversineDistance(hostFrom, hostTo);
   // 1. Gender Compatibility Check
   const genderCompatible = 

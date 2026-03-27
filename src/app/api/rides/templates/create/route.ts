@@ -174,10 +174,12 @@ export async function POST(request: NextRequest) {
 
         // BUG FIX: Extract rider's pickup/destination coords from match (geography) - was using host's coords
         // match.pickup_point and match.destination_point are GEOGRAPHY, we need to extract lat/lng
-        const riderPickupLat = match.pickup_point ? (match.pickup_point as any).coordinates[1] : null;
-        const riderPickupLng = match.pickup_point ? (match.pickup_point as any).coordinates[0] : null;
-        const riderDestLat = match.destination_point ? (match.destination_point as any).coordinates[1] : null;
-        const riderDestLng = match.destination_point ? (match.destination_point as any).coordinates[0] : null;
+        const pickupPoint = match.pickup_point as any;
+        const destPoint = match.destination_point as any;
+        const riderPickupLat = pickupPoint?.coordinates?.[1] ?? null;
+        const riderPickupLng = pickupPoint?.coordinates?.[0] ?? null;
+        const riderDestLat = destPoint?.coordinates?.[1] ?? null;
+        const riderDestLng = destPoint?.coordinates?.[0] ?? null;
 
         console.log(`[Template API] DEBUG - Match details:`, {
           hostCoords: { from: profile.from_lat, from_lng: profile.from_lng, to: profile.to_lat, to_lng: profile.to_lng },
