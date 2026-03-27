@@ -323,9 +323,8 @@ export async function POST(req: NextRequest) {
               destination_point: `POINT(${profile.to_lng} ${profile.to_lat})`,
               route_geometry: routeGeometryWkt ? `SRID=4326;${routeGeometryWkt}` : null,
               route_distance_meters: routeDistanceMeters,
-              departure_time: profile.leave_home_time,
-              return_time: profile.leave_college_time || null,
-              days_available: profile.days_of_commute,
+              preferred_arrival_time: profile.leave_home_time,
+              days_needed: profile.days_of_commute,
               gender_preference: profile.comfortable_with || 'both',
               status: 'pending'
             })

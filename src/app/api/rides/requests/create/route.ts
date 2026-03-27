@@ -197,7 +197,19 @@ export async function POST(request: NextRequest) {
           hostGenderPreference: hostProfile?.comfortable_with || 'both',
           riderGenderPreference: genderPreference,
           maxDetourMeters: 2000,
-          maxDestinationMeters: 1000
+          maxDestinationMeters: 1000,
+          pickupDistanceOverride: match.pickup_distance_meters,
+          destinationDistanceOverride: match.destination_distance_meters
+        });
+
+        console.log(`[Request API] Match score details:`, {
+          templateId: match.template_id,
+          pickupDistance: score.pickup_distance_meters,
+          destinationDistance: score.destination_distance_meters,
+          overlappingDistance: score.overlapping_distance_meters,
+          matchScore: score.match_score,
+          sameCollege: score.same_college,
+          reason: score.reason
         });
 
         if (score.compatible) {
