@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
         status, 
         ride_template_id,
         ride_request_id,
+        overlapping_distance_meters,
         ride_requests ( rider_id )
       `)
       .eq("id", matchId)
@@ -172,7 +173,8 @@ export async function POST(request: NextRequest) {
         status: 'active',
         joined_at: new Date().toISOString(),
         rider_confirmed_at: new Date().toISOString(),
-        host_approved_at: new Date().toISOString()
+        host_approved_at: new Date().toISOString(),
+        overlapping_distance_meters: match.overlapping_distance_meters
       });
 
     if (memberError) {

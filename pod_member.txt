@@ -1,1 +1,106 @@
-[{"idx":0,"id":"4a1f7e39-5ed6-4720-b39b-80fc979b27f5","host_id":"68d784a9-d80f-4fcb-9212-d9492821e2ed","from_location":"Saidabad, Hyderabad, Telangana","from_lat":17.3573882,"from_lng":78.5112407,"from_point":"0101000020E610000096B8E92AB8A05340EFF906CB7D5B3140","to_location":"CBIT, Osman Sagar Road, Kokapet, Gandipet, Hyderabad, Telangana","to_lat":17.3919735,"to_lng":78.3194368,"to_point":"0101000020E6100000E4480CA7719453400E66136058643140","departure_time":"08:00:00","return_time":"16:00:00","days_available":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"vehicle_type":"4_wheeler","available_seats":3,"seats_taken":0,"gender_preference":"male","max_detour_meters":2000,"status":"active","created_at":"2026-03-26 15:29:24.109219+00","updated_at":"2026-03-26 15:29:24.109219+00","route_geometry":"0102000020E61000004B020000C"},{"idx":1,"id":"559966f2-2673-4adc-8aec-ecebbfbbcdda","host_id":"62818879-be3c-47ea-8eb9-9d1a6e7a3e14","from_location":"MY HOME AVATAR, Narsingi, Hyderabad, Telangana","from_lat":17.3988794,"from_lng":78.3554219,"from_point":"0101000020E61000000F327F3BBF965340500CDAF51C663140","to_location":"Mahatma Gandhi Institute of Technology (MGIT), MGIT Main Road, Kokapet, Gandipet, Telangana","to_lat":17.391051,"to_lng":78.3220892,"to_point":"0101000020E61000004419051C9D9453406F1118EB1B643140","departure_time":"20:45:00","return_time":"16:10:00","days_available":["Wednesday","Monday","Tuesday","Thursday","Friday"],"vehicle_type":"2_wheeler","available_seats":1,"seats_taken":0,"gender_preference":"both","max_detour_meters":2000,"status":"active","created_at":"2026-03-25 18:01:16.802635+00","updated_at":"2026-03-25 18:01:16.802635+00","route_geometry":"0102000020E61000009A0000002D060F"},{"idx":2,"id":"91b44b88-a6ed-45a2-9c02-3792affb3dbe","host_id":"69e705a9-fe2a-4806-8fd6-2b0210878a6b","from_location":"Metro Station Lakdi-Ka-Pul, Red Hills, Lakdikapul, Hyderabad, Telangana","from_lat":17.4036427,"from_lng":78.4645934,"from_point":"0101000020E6100000FFBBF4E5BB9D5340E6C4C32055673140","to_location":"CBIT, Osman Sagar Road, Kokapet, Gandipet, Hyderabad, Telangana","to_lat":17.3919735,"to_lng":78.3194368,"to_point":"0101000020E6100000E4480CA7719453400E66136058643140","departure_time":"08:00:00","return_time":"04:10:00","days_available":["Monday","Tuesday","Wednesday","Thursday","Friday"],"vehicle_type":"2_wheeler","available_seats":1,"seats_taken":0,"gender_preference":"both","max_detour_meters":2000,"status":"active","created_at":"2026-03-25 17:32:12.605784+00","updated_at":"2026-03-25 17:32:12.605784+00","route_geometry":"0102000020E6100000B2010000E1B6B6"},{"idx":3,"id":"9fc28558-0903-4d3a-90bc-55cf8a1fc887","host_id":"d8e89328-9925-446a-b028-af7dc52baa42","from_location":"Malakpet, Hyderabad, Telangana","from_lat":17.3716458,"from_lng":78.4909767,"from_point":"0101000020E6100000466689296C9F53401DB2DC2D245F3140","to_location":"CBIT, Osman Sagar Road, Kokapet, Gandipet, Hyderabad, Telangana","to_lat":17.3919735,"to_lng":78.3194368,"to_point":"0101000020E6100000E4480CA7719453400E66136058643140","departure_time":"08:00:00","return_time":"16:02:00","days_available":["Monday","Tuesday","Wednesday","Friday","Thursday","Saturday","Sunday"],"vehicle_type":"4_wheeler","available_seats":3,"seats_taken":1,"gender_preference":"male","max_detour_meters":2000,"status":"active","created_at":"2026-03-26 15:33:36.334988+00","updated_at":"2026-03-26 16:50:06.377313+00","route_geometry":"0102000020E6100000EB0100006A6D1ADB6B9F53400BEBC6BB235F31401CD0D2156C9F5340D120054F215F3140B13385CE6B9F53407920B248135F314"},{"idx":4,"id":"e6091a4c-4660-448c-bdfa-57848fa8377e","host_id":"6a17cfa9-3545-4463-b4da-0b18db6f816b","from_location":"Mehdipatnam bus station, Royal Colony, Mehdipatnam, Hyderabad, Telangana","from_lat":17.3949099,"from_lng":78.4404462,"from_point":"0101000020E610000070294245309C5340DB5DB1D018653140","to_location":"CVR College Of Engineering, Pocharam Rd, Vastunagar, Mangalpalli (Village, Telangana","to_lat":17.1965553,"to_lng":78.596087,"to_point":"0101000020E610000087A4164A26A65340005BB97251323140","departure_time":"20:00:00","return_time":"16:10:00","days_available":["Monday","Tuesday","Wednesday","Thursday","Friday"],"vehicle_type":"4_wheeler","available_seats":3,"seats_taken":0,"gender_preference":"both","max_detour_meters":2000,"status":"active","created_at":"2026-03-25 17:57:26.564839+00","updated_at":"2026-03-25 17:57:26.564839+00","route_geometry":"0102000020E61000007603000076A4FACE2F9C5340CEFFAB8E1C6531403046240A2D9C5340596B28B5176531404AF086342A9C5340"}]
+{
+    "host_pods": [
+        {
+            "id": "46ad99a2-3f55-4540-b536-806bb6aa5c0b",
+            "ride_template_id": "c5a03a79-5614-4a78-859a-9cf313bd9123",
+            "host_id": "dc3277b3-fc44-4fbf-93a3-fba89f035ed9",
+            "name": null,
+            "days_active": [],
+            "departure_time": "08:00:00",
+            "origin_location": "Metro Station Lakdi-Ka-Pul, Red Hills, Lakdikapul, Hyderabad, Telangana",
+            "destination_location": "CBIT, Osman Sagar Road, Kokapet, Gandipet, Hyderabad, Telangana",
+            "status": "active",
+            "created_at": "2026-03-27T14:06:23.13808+00:00",
+            "dissolved_at": null,
+            "ride_template": {
+                "id": "c5a03a79-5614-4a78-859a-9cf313bd9123",
+                "seats_taken": 1,
+                "to_location": "CBIT, Osman Sagar Road, Kokapet, Gandipet, Hyderabad, Telangana",
+                "vehicle_type": "2_wheeler",
+                "from_location": "Metro Station Lakdi-Ka-Pul, Red Hills, Lakdikapul, Hyderabad, Telangana",
+                "days_available": [
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday"
+                ],
+                "departure_time": "08:00:00",
+                "available_seats": 1
+            },
+            "pod_members": [
+                {
+                    "id": "24131439-4d17-4292-a1f8-71d48101cca7",
+                    "status": "active",
+                    "profiles": {
+                        "id": "c43c4cc3-1a7f-484e-94a0-abe2354ed1b6",
+                        "gender": "male",
+                        "full_name": "Ali",
+                        "phone_number": "8106570882"
+                    },
+                    "rider_id": "c43c4cc3-1a7f-484e-94a0-abe2354ed1b6",
+                    "joined_at": "2026-03-27T14:13:48.102+00:00",
+                    "ride_requests": {
+                        "id": "0aacbf47-c999-49d9-b987-d283054834c2",
+                        "days_needed": [
+                            "Monday",
+                            "Tuesday",
+                            "Wednesday",
+                            "Thursday",
+                            "Friday"
+                        ],
+                        "pickup_location": "Mehdipatnam bus station, Royal Colony, Mehdipatnam, Hyderabad, Telangana",
+                        "destination_location": "Vasavi College of Engineering, Ibrahim Bagh, Hyderabad, Telangana",
+                        "time_flexibility_mins": 30
+                    },
+                    "pickup_landmark": null,
+                    "pickup_location": "Mehdipatnam bus station, Royal Colony, Mehdipatnam, Hyderabad, Telangana",
+                    "ride_request_id": "0aacbf47-c999-49d9-b987-d283054834c2",
+                    "rider_confirmed_at": "2026-03-27T14:13:48.102+00:00",
+                    "overlapping_distance_meters": null
+                }
+            ],
+            "actual_seats_taken": 1,
+            "actual_available_seats": 0
+        }
+    ],
+    "rider_rides": [],
+    "activity_logs": [
+        {
+            "id": "83ec4b49-84f4-4c1e-a551-5ef7ad42885e",
+            "log_time": "2026-03-27T14:13:21.203304+00:00",
+            "log_level": "INFO",
+            "function_name": "pod_leave",
+            "action": "Rider left pod",
+            "user_id": "adb28a29-eb54-45d6-9db0-9fd03d6c0237",
+            "entity_type": "pod",
+            "entity_id": "46ad99a2-3f55-4540-b536-806bb6aa5c0b",
+            "details": {
+                "reason": "schedule_conflict",
+                "rider_name": "adb28a29-eb54-45d6-9db0-9fd03d6c0237",
+                "pod_member_id": "2c24cfc7-aa52-4c2e-9cc0-c5b59e88a8e2"
+            },
+            "ip_address": null,
+            "user_agent": null,
+            "message": "Rider left pod"
+        },
+        {
+            "id": "17ec5419-466f-4044-bd86-87b414a93b2e",
+            "log_time": "2026-03-27T14:08:11.709397+00:00",
+            "log_level": "INFO",
+            "function_name": "pod_dismiss",
+            "action": "Host removed rider from pod",
+            "user_id": "dc3277b3-fc44-4fbf-93a3-fba89f035ed9",
+            "entity_type": "pod",
+            "entity_id": "46ad99a2-3f55-4540-b536-806bb6aa5c0b",
+            "details": {
+                "reason": "other",
+                "pod_member_id": "ac267849-1cd9-4148-9839-70409c0d0e1c",
+                "dismissed_rider_id": "7874a0f0-0a23-4621-b249-8407c93f0921"
+            },
+            "ip_address": null,
+            "user_agent": null,
+            "message": "Rider was removed from the pod"
+        }
+    ]
+}

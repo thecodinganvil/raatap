@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
           pickup_landmark,
           pickup_location,
           ride_request_id,
+          overlapping_distance_meters,
           profiles:profiles(
             id,
             full_name,
@@ -57,7 +58,9 @@ export async function POST(request: NextRequest) {
           ride_requests(
             id,
             pickup_location,
-            destination_location
+            destination_location,
+            time_flexibility_mins,
+            days_needed
           )
         )
       `)
@@ -80,6 +83,13 @@ export async function POST(request: NextRequest) {
       .from("pod_members")
       .select(`
         *,
+        ride_requests(
+          id,
+          pickup_location,
+          destination_location,
+          time_flexibility_mins,
+          days_needed
+        ),
         pod:pods(
           *,
           ride_template:ride_templates(

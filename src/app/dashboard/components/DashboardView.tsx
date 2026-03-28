@@ -70,9 +70,7 @@ export default function DashboardView({
                         <div className="relative z-10">
                           <div className="flex justify-between items-start mb-2">
                             <span className="text-xs font-bold text-[#6675FF] bg-[#6675FF]/10 px-2 py-1 rounded-full uppercase tracking-wider">
-                              {(pod.ride_template?.available_seats === 1 || pod.ride_templates.vehicle_type === "2_wheeler")
-                                ? "Bike Pool"
-                                : "Car Pool"}
+                              Pool
                             </span>
                             <span className="text-sm font-medium text-gray-500 flex items-center gap-1">
                               <svg
@@ -88,7 +86,7 @@ export default function DashboardView({
                                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                                 />
                               </svg>
-                              {pod.ride_templates.departure_time}
+                              {pod.ride_template?.departure_time}
                             </span>
                           </div>
                           <h4 className="text-lg font-bold text-gray-800 mb-1">
@@ -96,7 +94,7 @@ export default function DashboardView({
                           </h4>
                           <div className="flex items-center gap-2 text-gray-600 text-sm">
                             <span className="truncate max-w-[45%]">
-                              {pod.ride_templates.from_location}
+                              {pod.ride_template?.from_location}
                             </span>
                             <svg
                               className="w-4 h-4 flex-shrink-0 text-gray-400"
@@ -112,7 +110,7 @@ export default function DashboardView({
                               />
                             </svg>
                             <span className="truncate max-w-[45%]">
-                              {pod.ride_templates.to_location}
+                              {pod.ride_template?.to_location}
                             </span>
                           </div>
                           <div className="mt-3 flex items-center gap-2">
@@ -128,6 +126,14 @@ export default function DashboardView({
                               {pod.ride_template?.seats_taken || 0}/
                               {pod.ride_template?.available_seats || 0} Seats
                             </span>
+                          </div>
+                          <div className="mt-3 text-xs text-gray-600">
+                            {pod.ride_template?.days_available && Array.isArray(pod.ride_template?.days_available) && (
+                              <div className="flex items-center gap-1.5">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <span>{pod.ride_template?.days_available?.map((d: string) => d.slice(0, 3)).join(', ')}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -249,27 +255,23 @@ export default function DashboardView({
                     <div key={ride.id} className="space-y-4">
                       <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6675FF] to-[#8892ff] flex items-center justify-center text-white text-lg font-bold">
-                          {ride.pods?.profiles?.full_name?.charAt(0) || "H"}
+                          {ride.pod?.profiles?.full_name?.charAt(0) || "H"}
                         </div>
                         <div>
                           <p className="font-semibold text-gray-800 flex items-center gap-2">
-                            {ride.pods?.profiles?.full_name || "Host"}
+                            {ride.pod?.profiles?.full_name || "Host"}
                             <span className="text-xs px-2 py-0.5 bg-[#6675FF]/10 text-[#6675FF] rounded-full font-medium">
                               Host
                             </span>
                           </p>
                           <p className="text-sm text-gray-500">
-                            {ride.pods?.ride_templates?.vehicle_type ===
-                            "2_wheeler"
-                              ? "Bike"
-                              : "Car"}{" "}
-                            • {ride.pods?.profiles?.gender}
+                            Pool • {ride.pod?.profiles?.gender}
                           </p>
                         </div>
                         <div className="ml-auto flex items-center gap-2">
-                          <span className="text-xs text-gray-500">{ride.pods?.profiles?.phone_number}</span>
+                          <span className="text-xs text-gray-500">{ride.pod?.profiles?.phone_number}</span>
                           <a
-                            href={`tel:${ride.pods?.profiles?.phone_number}`}
+                            href={`tel:${ride.pod?.profiles?.phone_number}`}
                             className="w-10 h-10 flex items-center justify-center bg-green-100 text-green-600 rounded-full hover:bg-green-200 transition-colors"
                           >
                             <svg
@@ -290,13 +292,13 @@ export default function DashboardView({
                       </div>
 
                       {/* Co-Riders View */}
-                      {ride.pods?.pod_members?.length > 1 && (
+                      {ride.pod?.pod_members?.length > 1 && (
                         <div className="mt-4 pt-4 border-t border-gray-100">
                           <p className="text-sm font-medium text-gray-700 mb-2">
                             Co-Riders with you:
                           </p>
                           <div className="space-y-2">
-                            {ride.pods.pod_members
+                            {ride.pod.pod_members
                               .filter(
                                 (m: any) =>
                                   m.rider_id !== user?.id &&
@@ -322,7 +324,7 @@ export default function DashboardView({
                                 </div>
                               ))}
                           </div>
-                          {ride.pods.pod_members.filter(
+                          {ride.pod.pod_members.filter(
                             (m: any) =>
                               m.rider_id !== user?.id && m.status === "active",
                           ).length === 0 && (
@@ -333,7 +335,7 @@ export default function DashboardView({
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
                         <div className="p-3 bg-[#6675FF]/10 rounded-xl">
                           <p className="text-xs text-[#6675FF] font-semibold uppercase mb-1">
                             Pickup
@@ -344,12 +346,20 @@ export default function DashboardView({
                         </div>
                         <div className="p-3 bg-[#4d5ce6]/10 rounded-xl">
                           <p className="text-xs text-[#4d5ce6] font-semibold uppercase mb-1">
-                            Time
+                            Departure Time
                           </p>
                           <p className="text-gray-700 text-sm font-medium">
-                            {ride.pods?.departure_time}
+                            {ride.pod?.ride_template?.departure_time}
                           </p>
                         </div>
+                      </div>
+                      <div className="mt-3 text-xs text-gray-600">
+                        {ride.pod?.ride_template?.days_available && Array.isArray(ride.pod?.ride_template?.days_available) && (
+                          <div className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            <span>{ride.pod?.ride_template?.days_available?.map((d: string) => d.slice(0, 3)).join(', ')}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
