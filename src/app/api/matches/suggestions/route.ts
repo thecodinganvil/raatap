@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         const hasSeatsAvailable = seatsTaken < availableSeats;
 
         if (isHost && (suggestion.status === 'pending_host_approval' || suggestion.status === 'pending')) {
-          return true;
+          return hasSeatsAvailable;
         }
 
         // For riders: only show matches where host has seats available
