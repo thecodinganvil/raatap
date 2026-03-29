@@ -895,7 +895,8 @@ export default function DashboardContent() {
       "chaitanya.edu.in",
       "vce.ac.in",
       "lords.ac.in",
-      "mgit.ac.in"
+      "mgit.ac.in",
+      "cvr.ac.in"
     ];
     const emailDomain = institutionalEmail.split("@")[1]?.toLowerCase();
     
