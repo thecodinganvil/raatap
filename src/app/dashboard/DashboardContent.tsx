@@ -1030,6 +1030,8 @@ export default function DashboardContent() {
 
       // OTP verified, now save the profile
       setSubmitting(true);
+      // Use custom college if "Other" is selected
+      const finalInstitution = formData.institution === "Other" ? customCollege : formData.institution;
 
       // Calculate available seats based on vehicle type (2-wheeler: 1, 4-wheeler: 3)
       const availableSeats = formData.vehicle_type === '2_wheeler' ? 1 : 3;
@@ -1159,6 +1161,9 @@ export default function DashboardContent() {
         setSubmitting(false);
         return;
       }
+
+      // Use custom college if "Other" is selected
+      const finalInstitution = formData.institution === "Other" ? customCollege : formData.institution;
 
       // Calculate available seats based on vehicle type (2-wheeler: 1, 4-wheeler: 3)
       const availableSeats = formData.vehicle_type === '2_wheeler' ? 1 : 3;
