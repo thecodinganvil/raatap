@@ -30,6 +30,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { data: authUserData, error: authUserError } =
+      await supabase.auth.admin.getUserById(userId);
+
+    if (authUserError || !authUserData?.user) {
+      console.error("Invalid userId for OTP send:", authUserError);
+      return NextResponse.json(
+        { error: "Session not found for this user. Please sign in again." },
+        { status: 401 },
+      );
+    }
+
     // Generate OTP
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
