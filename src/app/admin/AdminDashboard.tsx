@@ -12,6 +12,7 @@ interface WaitlistEntry {
   gender: string;
   institution: string;
   institutional_email: string;
+  rejection_reason: string | null;
   from_location: string;
   to_location: string;
   leave_home_time: string;
@@ -55,6 +56,22 @@ export default function AdminDashboard() {
   const [pods, setPods] = useState<any[]>([]);
   const [loadingPods, setLoadingPods] = useState(false);
   const [showPodsSection, setShowPodsSection] = useState(false);
+
+  // Rejection modal state
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingUserId, setRejectingUserId] = useState<string | null>(null);
+  const [selectedRejectReason, setSelectedRejectReason] = useState("");
+  const [customRejectReason, setCustomRejectReason] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  const rejectionReasons = [
+    "Wrong phone number - Please update and resubmit",
+    "Wrong student ID - Please update and resubmit", 
+    "Wrong institutional email - Please update and resubmit",
+    "Invalid details provided",
+    "Duplicate account",
+    "Other"
+  ];
 
   // Check if already authenticated on mount
   useEffect(() => {
@@ -137,20 +154,41 @@ export default function AdminDashboard() {
   };
 
   const handleRejectVerification = async (userId: string) => {
+    setRejectingUserId(userId);
+    setShowRejectModal(true);
+    setSelectedRejectReason("");
+    setCustomRejectReason("");
+  };
+
+  const confirmRejectVerification = async () => {
+    if (!rejectingUserId || !selectedRejectReason) return;
+
+    const reason = selectedRejectReason === "Other" && customRejectReason 
+      ? customRejectReason 
+      : selectedRejectReason;
+
+    setIsRejecting(true);
     try {
       const res = await fetch("/api/admin/verify-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, action: "reject" }),
+        body: JSON.stringify({ userId: rejectingUserId, action: "reject", rejectionReason: reason }),
       });
       if (res.ok) {
-        // Optimistically update the UI
-        setEntries(entries.map(e => e.id === userId ? { ...e, institutional_email: "REJECTED" } : e));
+        setEntries(entries.map(e => e.id === rejectingUserId ? { 
+          ...e, 
+          institutional_email: "REJECTED",
+          rejection_reason: reason
+        } : e));
+        setShowRejectModal(false);
+        setRejectingUserId(null);
       } else {
         alert("Failed to reject user");
       }
     } catch (error) {
       console.error("Error rejecting user:", error);
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -737,6 +775,11 @@ export default function AdminDashboard() {
                               <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase bg-red-100 text-red-700">
                                 Manual: Rejected
                               </span>
+                              {entry.rejection_reason && (
+                                <p className="text-[10px] text-red-600 mt-1 max-w-[180px] truncate" title={entry.rejection_reason}>
+                                  Reason: {entry.rejection_reason}
+                                </p>
+                              )}
                            </div>
                         )}
                         {entry.email_verified && entry.institutional_email === "Manual Approval" && (
@@ -1027,6 +1070,78 @@ export default function AdminDashboard() {
           Admin Dashboard • Raatap © {new Date().getFullYear()}
         </p>
       </div>
+
+      {/* Rejection Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowRejectModal(false)}
+          ></div>
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 z-10">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              Reject Verification
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Please select a reason for rejection. The user will be able to see this reason and update their profile.
+            </p>
+            
+            <div className="space-y-3 mb-6">
+              {rejectionReasons.map((reason) => (
+                <label
+                  key={reason}
+                  className={`flex items-start p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                    selectedRejectReason === reason
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="rejectReason"
+                    value={reason}
+                    checked={selectedRejectReason === reason}
+                    onChange={(e) => setSelectedRejectReason(e.target.value)}
+                    className="mt-1 mr-3"
+                  />
+                  <span className="text-sm text-gray-700">{reason}</span>
+                </label>
+              ))}
+            </div>
+
+            {selectedRejectReason === "Other" && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Custom Reason
+                </label>
+                <textarea
+                  value={customRejectReason}
+                  onChange={(e) => setCustomRejectReason(e.target.value)}
+                  placeholder="Enter custom rejection reason..."
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-400 focus:outline-none"
+                  rows={3}
+                />
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRejectVerification}
+                disabled={!selectedRejectReason || (selectedRejectReason === "Other" && !customRejectReason) || isRejecting}
+                className="flex-1 px-4 py-3 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isRejecting ? "Rejecting..." : "Reject User"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -47,12 +47,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { userId, action } = await req.json();
-    console.log(`[Admin Verify] User ID: ${userId}, Action: ${action}`);
+    const { userId, action, rejectionReason } = await req.json();
+    console.log(`[Admin Verify] User ID: ${userId}, Action: ${action}, Reason: ${rejectionReason}`);
 
     if (!userId || !action || !["approve", "reject"].includes(action)) {
       console.log("[Admin Verify] Invalid parameters");
       return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
+    }
+
+    if (action === "reject" && !rejectionReason) {
+      console.log("[Admin Verify] Rejection reason required");
+      return NextResponse.json({ error: "Rejection reason is required" }, { status: 400 });
     }
 
     // Fetch the full profile first
@@ -421,9 +426,11 @@ export async function POST(req: NextRequest) {
 
     } else if (action === "reject") {
       console.log("[Admin Verify] Processing REJECT action");
+      console.log(`[Admin Verify] Rejection reason: ${rejectionReason}`);
       
       updatePayload = {
         institutional_email: "REJECTED",
+        rejection_reason: rejectionReason,
       };
 
       const { error } = await supabase

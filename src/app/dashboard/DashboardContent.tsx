@@ -65,6 +65,7 @@ export default function DashboardContent() {
   const [submitted, setSubmitted] = useState(false);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [currentInstitutionalEmail, setCurrentInstitutionalEmail] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -642,6 +643,7 @@ export default function DashboardContent() {
           setSubmitted(true);
           setIsVerified(existingEntry.email_verified);
           setCurrentInstitutionalEmail(existingEntry.institutional_email);
+          setRejectionReason(existingEntry.rejection_reason || null);
         } else if (authUser.user_metadata?.full_name) {
           setFormData((prev) => ({
             ...prev,
@@ -684,6 +686,7 @@ export default function DashboardContent() {
           setSubmitted(true);
           setIsVerified(existingEntry.email_verified);
           setCurrentInstitutionalEmail(existingEntry.institutional_email);
+          setRejectionReason(existingEntry.rejection_reason || null);
         } else if (session.user.user_metadata?.full_name) {
           setFormData((prev) => ({
             ...prev,
@@ -1031,10 +1034,35 @@ export default function DashboardContent() {
       // Calculate available seats based on vehicle type (2-wheeler: 1, 4-wheeler: 3)
       const availableSeats = formData.vehicle_type === '2_wheeler' ? 1 : 3;
 
-      const { error: insertError } = await upsertProfileRecord(
-        freshUserId,
-        true,
-        institutionalEmail,
+      const { error: insertError } = await supabase.from("profiles").upsert(
+        {
+          id: user?.id,
+          full_name: formData.full_name,
+          phone_number: formData.phone_number,
+          age: parseInt(formData.age),
+          gender: formData.gender,
+          student_id: formData.student_id,
+          institution: finalInstitution,
+          institutional_email: institutionalEmail,
+          from_location: formData.from_location,
+          pickup_landmark: formData.landmark || null,
+          to_location: formData.to_location,
+          from_lat: formData.from_lat,
+          from_lng: formData.from_lng,
+          to_lat: formData.to_lat,
+          to_lng: formData.to_lng,
+          leave_home_time: formData.leave_home_time,
+          leave_college_time: formData.leave_college_time,
+          days_of_commute: formData.days_of_commute,
+          prefer_hosting: formData.prefer_hosting,
+          prefer_taking_ride: formData.prefer_taking_ride,
+          vehicle_type: formData.prefer_hosting ? formData.vehicle_type : null,
+          comfortable_with: formData.comfortable_with,
+          agreed_to_terms: formData.agreed_to_terms,
+          email_verified: true,
+          rejection_reason: null,
+        },
+        { onConflict: "id" },
       );
 
       if (insertError) {
@@ -1135,10 +1163,35 @@ export default function DashboardContent() {
       // Calculate available seats based on vehicle type (2-wheeler: 1, 4-wheeler: 3)
       const availableSeats = formData.vehicle_type === '2_wheeler' ? 1 : 3;
 
-      const { error: insertError } = await upsertProfileRecord(
-        freshUserId,
-        false,
-        null,
+      const { error: insertError } = await supabase.from("profiles").upsert(
+        {
+          id: user?.id,
+          full_name: formData.full_name,
+          phone_number: formData.phone_number,
+          age: parseInt(formData.age),
+          gender: formData.gender,
+          student_id: formData.student_id,
+          institution: finalInstitution,
+          institutional_email: null,
+          from_location: formData.from_location,
+          pickup_landmark: formData.landmark || null,
+          to_location: formData.to_location,
+          from_lat: formData.from_lat,
+          from_lng: formData.from_lng,
+          to_lat: formData.to_lat,
+          to_lng: formData.to_lng,
+          leave_home_time: formData.leave_home_time,
+          leave_college_time: formData.leave_college_time,
+          days_of_commute: formData.days_of_commute,
+          prefer_hosting: formData.prefer_hosting,
+          prefer_taking_ride: formData.prefer_taking_ride,
+          vehicle_type: formData.prefer_hosting ? formData.vehicle_type : null,
+          comfortable_with: formData.comfortable_with,
+          agreed_to_terms: formData.agreed_to_terms,
+          email_verified: false,
+          rejection_reason: null,
+        },
+        { onConflict: "id" },
       );
 
       if (insertError) {
@@ -1262,9 +1315,64 @@ export default function DashboardContent() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-3">Verification Rejected</h2>
+                {rejectionReason && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-left">
+                    <p className="text-sm font-semibold text-red-800 mb-1">Reason for rejection:</p>
+                    <p className="text-sm text-red-700">{rejectionReason}</p>
+                  </div>
+                )}
                 <p className="text-gray-600 mb-6">
-                  Your identity verification was rejected by an administrator. Please contact support.
+                  Please update your profile with correct details and resubmit for verification.
                 </p>
+                <button
+                  onClick={async () => {
+                    setSubmitted(false);
+                    setCurrentInstitutionalEmail(null);
+                    setRejectionReason(null);
+                    
+                    // Load existing profile data into form
+                    if (user) {
+                      const { data: existingProfile } = await supabase
+                        .from("profiles")
+                        .select("*")
+                        .eq("id", user.id)
+                        .single();
+                      
+                      if (existingProfile) {
+                        setFormData({
+                          full_name: existingProfile.full_name || "",
+                          phone_number: existingProfile.phone_number || "",
+                          age: existingProfile.age?.toString() || "",
+                          gender: existingProfile.gender || "",
+                          student_id: existingProfile.student_id || "",
+                          institution: existingProfile.institution || "",
+                          from_location: existingProfile.from_location || "",
+                          landmark: existingProfile.pickup_landmark || "",
+                          to_location: existingProfile.to_location || "",
+                          from_lat: existingProfile.from_lat || null,
+                          from_lng: existingProfile.from_lng || null,
+                          to_lat: existingProfile.to_lat || null,
+                          to_lng: existingProfile.to_lng || null,
+                          leave_home_time: existingProfile.leave_home_time || "",
+                          leave_college_time: existingProfile.leave_college_time || "",
+                          days_of_commute: existingProfile.days_of_commute || [],
+                          prefer_hosting: existingProfile.prefer_hosting || false,
+                          prefer_taking_ride: existingProfile.prefer_taking_ride || false,
+                          vehicle_type: existingProfile.vehicle_type || "",
+                          comfortable_with: existingProfile.comfortable_with || "",
+                          agreed_to_terms: true,
+                          agreed_to_policies: true,
+                        });
+                      }
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#6675FF] hover:bg-[#5568e3] text-white font-semibold rounded-xl transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Update & Resubmit
+                </button>
               </>
             ) : (
               <>
