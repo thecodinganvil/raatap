@@ -57,6 +57,12 @@ export default function AdminDashboard() {
   const [loadingPods, setLoadingPods] = useState(false);
   const [showPodsSection, setShowPodsSection] = useState(false);
 
+  // Match suggestions state
+  const [matchSuggestions, setMatchSuggestions] = useState<any[]>([]);
+  const [loadingMatchSuggestions, setLoadingMatchSuggestions] = useState(false);
+  const [showMatchSuggestionsSection, setShowMatchSuggestionsSection] = useState(false);
+  const [matchSuggestionFilters, setMatchSuggestionFilters] = useState({ status: "all", search: "" });
+
   // Rejection modal state
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectingUserId, setRejectingUserId] = useState<string | null>(null);
@@ -238,6 +244,33 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchMatchSuggestions = async () => {
+    setLoadingMatchSuggestions(true);
+    try {
+      const params = new URLSearchParams();
+      if (matchSuggestionFilters.status !== "all") {
+        params.append("status", matchSuggestionFilters.status);
+      }
+      if (matchSuggestionFilters.search) {
+        params.append("search", matchSuggestionFilters.search);
+      }
+
+      const res = await fetch(`/api/admin/match-suggestions?${params}`);
+
+      if (!res.ok) {
+        console.error("Error fetching match suggestions:", await res.text());
+        return;
+      }
+
+      const data = await res.json();
+      setMatchSuggestions(data.suggestions || []);
+    } catch (error) {
+      console.error("Error fetching match suggestions:", error);
+    } finally {
+      setLoadingMatchSuggestions(false);
+    }
+  };
+
   // Filter and sort entries
   useEffect(() => {
     let result = [...entries];
@@ -287,6 +320,13 @@ export default function AdminDashboard() {
 
     setFilteredEntries(result);
   }, [entries, searchQuery, collegeFilter, roleFilter, sortField, sortOrder]);
+
+  // Fetch match suggestions when section is toggled or filters change
+  useEffect(() => {
+    if (showMatchSuggestionsSection) {
+      fetchMatchSuggestions();
+    }
+  }, [showMatchSuggestionsSection, matchSuggestionFilters.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -549,7 +589,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Pods Toggle Button */}
-        <div className="mb-6">
+        <div className="mb-6 flex gap-4 flex-wrap">
           <button
             onClick={() => {
               setShowPodsSection(!showPodsSection);
@@ -563,6 +603,18 @@ export default function AdminDashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
             {showPodsSection ? 'Hide Pods' : 'View Formed Pods'}
+          </button>
+
+          <button
+            onClick={() => {
+              setShowMatchSuggestionsSection(!showMatchSuggestionsSection);
+            }}
+            className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-[#6675FF] to-[#4d5ce6] text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            {showMatchSuggestionsSection ? 'Hide Match Suggestions' : 'View Match Suggestions'}
           </button>
         </div>
 
@@ -977,7 +1029,6 @@ export default function AdminDashboard() {
                             );
                           })}
                         </div>
-                        {/* Status Summary */}
                         <div className="mt-3 flex flex-wrap gap-2">
                           {pod.member_counts?.active > 0 && (
                             <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full text-white bg-green-500">
@@ -1009,6 +1060,194 @@ export default function AdminDashboard() {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Match Suggestions Section */}
+        {showMatchSuggestionsSection && (
+          <div className="mt-8 bg-white/80 backdrop-blur-xl rounded-2xl p-6 border border-white/50">
+            <h2 className="text-xl font-semibold text-[#171717] mb-6 flex items-center gap-2">
+              <svg className="w-6 h-6 text-[#6675FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+              Match Suggestions ({matchSuggestions.length})
+            </h2>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+              {(() => {
+                const statusCounts = {
+                  total: matchSuggestions.length,
+                  pending_host_approval: matchSuggestions.filter((m: any) => m.status === 'pending_host_approval').length,
+                  pending_rider_approval: matchSuggestions.filter((m: any) => m.status === 'pending_rider_approval').length,
+                  accepted: matchSuggestions.filter((m: any) => ['accepted', 'confirmed'].includes(m.status)).length,
+                  rejected_expired: matchSuggestions.filter((m: any) => ['rejected', 'expired', 'skipped'].includes(m.status)).length,
+                };
+                return (
+                  <>
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                      <p className="text-2xl font-semibold text-gray-800">{statusCounts.total}</p>
+                      <p className="text-xs text-gray-500">Total</p>
+                    </div>
+                    <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+                      <p className="text-2xl font-semibold text-amber-600">{statusCounts.pending_host_approval}</p>
+                      <p className="text-xs text-amber-600">Pending Host</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                      <p className="text-2xl font-semibold text-blue-600">{statusCounts.pending_rider_approval}</p>
+                      <p className="text-xs text-blue-600">Pending Rider</p>
+                    </div>
+                    <div className="bg-green-50 rounded-xl p-4 border border-green-100">
+                      <p className="text-2xl font-semibold text-green-600">{statusCounts.accepted}</p>
+                      <p className="text-xs text-green-600">Accepted</p>
+                    </div>
+                    <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+                      <p className="text-2xl font-semibold text-red-600">{statusCounts.rejected_expired}</p>
+                      <p className="text-xs text-red-600">Rejected/Expired</p>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="md:w-56">
+                <select
+                  value={matchSuggestionFilters.status}
+                  onChange={(e) => setMatchSuggestionFilters({ ...matchSuggestionFilters, status: e.target.value })}
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl bg-white/50 text-[#171717] focus:outline-none focus:border-[#6675FF] transition-colors appearance-none cursor-pointer"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending_host_approval">Pending Host Approval</option>
+                  <option value="pending_rider_approval">Pending Rider Approval</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="expired">Expired</option>
+                  <option value="skipped">Skipped</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search by host/rider name or phone..."
+                    value={matchSuggestionFilters.search}
+                    onChange={(e) => setMatchSuggestionFilters({ ...matchSuggestionFilters, search: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl bg-white/50 text-[#171717] placeholder-gray-400 focus:outline-none focus:border-[#6675FF] transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            {loadingMatchSuggestions ? (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 border-4 border-[#6675FF] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading match suggestions...</p>
+              </div>
+            ) : matchSuggestions.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-xl">
+                <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <p className="text-gray-500 text-lg">No match suggestions found</p>
+                <p className="text-gray-400 text-sm mt-2">Match suggestions appear when hosts and riders have compatible routes</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50/80 border-b border-gray-200">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Host</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rider</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Route</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distance</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {matchSuggestions.map((ms: any) => {
+                      const statusConfig: Record<string, { color: string; bgColor: string; label: string }> = {
+                        pending_host_approval: { color: 'text-amber-700', bgColor: 'bg-amber-100', label: 'Pending Host' },
+                        pending_rider_approval: { color: 'text-blue-700', bgColor: 'bg-blue-100', label: 'Pending Rider' },
+                        accepted: { color: 'text-green-700', bgColor: 'bg-green-100', label: 'Accepted' },
+                        confirmed: { color: 'text-green-800', bgColor: 'bg-green-200', label: 'Confirmed' },
+                        rejected: { color: 'text-red-700', bgColor: 'bg-red-100', label: 'Rejected' },
+                        expired: { color: 'text-gray-700', bgColor: 'bg-gray-100', label: 'Expired' },
+                        skipped: { color: 'text-gray-600', bgColor: 'bg-gray-100', label: 'Skipped' },
+                      };
+                      const status = statusConfig[ms.status] || { color: 'text-gray-700', bgColor: 'bg-gray-100', label: ms.status || 'Unknown' };
+                      
+                      const formatMeters = (m: number) => {
+                        if (!m) return '-';
+                        if (m >= 1000) return `${(m / 1000).toFixed(1)} km`;
+                        return `${m} m`;
+                      };
+                      
+                      return (
+                        <tr key={ms.id} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="px-3 py-3">
+                            <div>
+                              <p className="font-medium text-[#171717] text-sm">{ms.host?.name || 'Unknown'}</p>
+                              <p className="text-xs text-gray-500">{ms.host?.phone || 'N/A'}</p>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div>
+                              <p className="font-medium text-[#171717] text-sm">{ms.rider?.name || 'Unknown'}</p>
+                              <p className="text-xs text-gray-500">{ms.rider?.phone || 'N/A'}</p>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="max-w-[180px]">
+                              <p className="text-xs text-gray-600 truncate" title={ms.host?.from_location}>
+                                <span className="text-green-600">From:</span> {ms.host?.from_location || 'N/A'}
+                              </p>
+                              <p className="text-xs text-gray-600 truncate" title={ms.host?.to_location}>
+                                <span className="text-red-600">To:</span> {ms.host?.to_location || 'N/A'}
+                              </p>
+                              {ms.rider?.pickup_location && (
+                                <p className="text-xs text-gray-400 truncate" title={ms.rider.pickup_location}>
+                                  Pickup: {ms.rider.pickup_location}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div>
+                              <p className="text-xs font-medium text-[#6675FF]">Overall: {ms.overall_score?.toFixed(1) || '-'}</p>
+                              <p className="text-xs text-gray-400">Route: {ms.route_match_score?.toFixed(1) || '-'}</p>
+                              <p className="text-xs text-gray-400">Overlap: {formatMeters(ms.overlapping_distance_meters)}</p>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div>
+                              <p className="text-xs text-gray-500">Detour: {formatMeters(ms.detour_distance_meters)}</p>
+                              <p className="text-xs text-gray-400">Pickup: {formatMeters(ms.pickup_distance_meters)}</p>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${status.color} ${status.bgColor}`}>
+                              {status.label}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <p className="text-xs text-gray-500">{formatDate(ms.created_at)}</p>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
