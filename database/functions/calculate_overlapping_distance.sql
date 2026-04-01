@@ -29,7 +29,7 @@ BEGIN
     -- Get rider's actual route distance via OSRM (pickup -> destination)
     SELECT (routes->>'distance')::NUMERIC INTO v_rider_distance
     FROM (
-        SELECT http_get(
+        SELECT extensions.http_get(
             v_osrm_url || '/route/v1/driving/' || 
             p_rider_pickup_lng || ',' || p_rider_pickup_lat || ';' ||
             p_rider_dest_lng || ',' || p_rider_dest_lat || '?overview=false'

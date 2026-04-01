@@ -9,14 +9,12 @@
 -- STEP 1: Enable pg_http Extension
 -- ----------------------------------------------------------------
 
-CREATE EXTENSION IF NOT EXISTS http;
+-- Enable the pg_http extension (Supabase provides this)
+CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
 
-GRANT EXECUTE ON FUNCTION http_get(text) TO postgres;
-GRANT EXECUTE ON FUNCTION http_get(text) TO anon;
-GRANT EXECUTE ON FUNCTION http_get(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION http_post(text, text, text) TO postgres;
-GRANT EXECUTE ON FUNCTION http_post(text, text, text) TO anon;
-GRANT EXECUTE ON FUNCTION http_post(text, text, text) TO authenticated;
+-- Grant permissions for extension schema/functions (avoid signature-specific grants)
+GRANT USAGE ON SCHEMA extensions TO postgres, anon, authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, anon, authenticated;
 
 
 -- ----------------------------------------------------------------
@@ -76,6 +74,26 @@ BEGIN
         );
     END IF;
 
+    -- ============================================================
+    -- EMAIL VERIFICATION CHECK
+    -- ============================================================
+    -- Both host and rider must have verified emails
+    IF (SELECT email_verified FROM profiles WHERE id = template.host_id) IS NOT TRUE THEN
+        RETURN json_build_object(
+            'compatible', false,
+            'reason', 'Host email not verified',
+            'error_code', 'HOST_EMAIL_NOT_VERIFIED'
+        );
+    END IF;
+
+    IF (SELECT email_verified FROM profiles WHERE id = ride_request.rider_id) IS NOT TRUE THEN
+        RETURN json_build_object(
+            'compatible', false,
+            'reason', 'Rider email not verified',
+            'error_code', 'RIDER_EMAIL_NOT_VERIFIED'
+        );
+    END IF;
+
     -- Gender compatibility check
     gender_compatible := (
         template.gender_preference = 'both' OR
@@ -99,14 +117,15 @@ BEGIN
 
     -- Call OSRM API - Original Route (Host: from → to)
     BEGIN
-        SELECT (http_get(
+        SELECT (content->'routes'->0) INTO original_route
+        FROM extensions.http_get(
             format(
                 '%s/route/v1/driving/%s,%s;%s,%s?overview=false',
                 osrm_url,
                 template.from_lng, template.from_lat,
                 template.to_lng, template.to_lat
-            )
-        )->'content')::text::json->'routes'->0 INTO original_route;
+            )::varchar
+        );
 
         IF original_route IS NULL THEN
             original_distance := ST_Distance(
@@ -127,15 +146,16 @@ BEGIN
 
     -- Call OSRM API - Detour Route (Host + Rider: from → pickup → to)
     BEGIN
-        SELECT (http_get(
+        SELECT (content->'routes'->0) INTO detour_route
+        FROM extensions.http_get(
             format(
                 '%s/route/v1/driving/%s,%s;%s,%s;%s,%s?overview=false',
                 osrm_url,
                 template.from_lng, template.from_lat,
                 ride_request.pickup_lng, ride_request.pickup_lat,
                 template.to_lng, template.to_lat
-            )
-        )->'content')::text::json->'routes'->0 INTO detour_route;
+            )::varchar
+        );
 
         IF detour_route IS NULL THEN
             detour_distance := ST_Distance(

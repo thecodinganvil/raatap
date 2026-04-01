@@ -473,80 +473,37 @@ export default function DashboardContent() {
     if (user?.id) {
        fetchConfirmedPods(user.id).then((data) => {
          if (!isMounted) return;
-         console.log("📊 [Dashboard] fetchConfirmedPods data:", data);
-         
+
          // Allow fetching suggestions if:
          // 1. User is a HOST (host_pods > 0) OR
          // 2. User has NO ACTIVE confirmed rides (rider_rides with status 'active', 'pending_rider', 'pending_host')
-         const hasActiveRide = data?.rider_rides?.some((ride: any) => 
+         const hasActiveRide = data?.rider_rides?.some((ride: any) =>
            ride.status === 'active' || ride.status === 'pending_rider' || ride.status === 'pending_host'
          );
 
-         console.log("🔍 [Dashboard] Checking if should fetch suggestions...");
-         console.log("📊 [Dashboard] rider_rides length:", data?.rider_rides?.length || 0);
-         console.log("📊 [Dashboard] Has active ride:", hasActiveRide);
-         console.log("📊 [Dashboard] Condition result:", !data || !hasActiveRide);
-         
          if (!data || !hasActiveRide) {
-           console.log("📥 [Dashboard] Fetching match suggestions for user:", user.id);
-           
            const fetchSuggestions = async () => {
              setLoadingSuggestions(true);
              try {
-               console.log("📡 [Dashboard] Calling /api/matches/suggestions...");
                const response = await fetch("/api/matches/suggestions", {
                  method: "POST",
                  headers: { "Content-Type": "application/json" },
                  body: JSON.stringify({ userId: user.id }),
                });
-               console.log("📊 [Dashboard] Match suggestions response status:", response.status);
-               
+
                 if (response.ok && isMounted) {
                   const suggestionsData = await response.json();
-                  console.log("🎯 [Dashboard] Received match suggestions:", suggestionsData);
-                  console.log("🎯 [Dashboard] Number of suggestions:", suggestionsData.length);
-                  
-                  // Detailed logging of each match
-                  suggestionsData.forEach((match: any, index: number) => {
-                    console.log(`📦 [Match ${index + 1}]`, {
-                      id: match.id,
-                      status: match.status,
-                      overall_score: match.overall_score,
-                      pickup_distance_meters: match.pickup_distance_meters,
-                      overlapping_distance_meters: match.overlapping_distance_meters,
-                      destination_distance_meters: match.destination_distance_meters,
-                      ride_request: match.ride_request ? {
-                        pickup_location: match.ride_request.pickup_location,
-                        destination_location: match.ride_request.destination_location,
-                        pickup_landmark: match.ride_request.pickup_landmark,
-                      } : null,
-                      ride_template: match.ride_template ? {
-                        from_location: match.ride_template.from_location,
-                        to_location: match.ride_template.to_location,
-                        vehicle_type: match.ride_template.vehicle_type,
-                      } : null,
-                    });
-                  });
-                  
                   setMatchSuggestions(suggestionsData);
-                  console.log("✅ [Dashboard] Match suggestions set successfully");
                } else if (isMounted) {
-                 // Log error response
-                 const errorData = await response.json();
-                 console.error("❌ [Dashboard] API Error Response:", errorData);
-                 console.error("❌ [Dashboard] Error code:", errorData.code);
-                 console.error("❌ [Dashboard] Error hint:", errorData.hint);
-                 console.error("❌ [Dashboard] Error details:", errorData.details_message);
+                 console.error("Failed to fetch suggestions:", await response.json().catch(() => ({})));
                }
              } catch (error) {
-               console.error("❌ [Dashboard] Error fetching suggestions:", error);
+               console.error("Error fetching suggestions:", error);
              } finally {
                if (isMounted) setLoadingSuggestions(false);
              }
            };
            fetchSuggestions();
-         } else {
-           console.log("⏭️ [Dashboard] Skipping suggestions fetch - user has confirmed rides");
          }
        });
     }
@@ -1673,7 +1630,7 @@ export default function DashboardContent() {
                                                </div>
 {member.overlapping_distance_meters > 0 && (
                                                    <div className="bg-green-50 p-2 rounded-lg border border-green-100">
-                                                     <span className="block text-green-700 font-bold uppercase tracking-wider text-[10px] mb-0.5">Cost Contribution</span>
+                                                     <span className="block text-green-700 font-bold uppercase tracking-wider text-[10px] mb-0.5">One Way Cost Contribution</span>
                                                      <span className="text-gray-700 font-medium">
                                                        ₹{Math.round((member.overlapping_distance_meters / 1000) * 4)} ({Math.round(member.overlapping_distance_meters / 1000)} km)
                                                      </span>
@@ -1735,7 +1692,7 @@ export default function DashboardContent() {
                                              </div>
                                              {member.overlapping_distance_meters > 0 && (
                                                  <div className="bg-green-50 p-2 rounded-lg border border-green-100">
-                                                   <span className="block text-green-700 font-bold uppercase tracking-wider text-[10px] mb-0.5">Cost Contribution</span>
+                                                   <span className="block text-green-700 font-bold uppercase tracking-wider text-[10px] mb-0.5">One Way Cost Contribution</span>
                                                    <span className="text-gray-700 font-medium">
                                                      ₹{Math.round((member.overlapping_distance_meters / 1000) * 4)} ({Math.round(member.overlapping_distance_meters / 1000)} km)
                                                    </span>
@@ -3520,7 +3477,7 @@ function MatchQueue({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold">Cost Contribution</p>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">One Way Cost Contribution</p>
                   <p className="text-gray-700">₹{costPerKm}/km</p>
                 </div>
               </div>
@@ -3614,7 +3571,7 @@ function MatchQueue({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold">Your Cost Contribution</p>
+                  <p className="text-xs text-gray-500 uppercase font-semibold">Your One Way Cost Contribution</p>
                   <p className="text-gray-700">
                     {overlappingDistanceKm 
                       ? `₹${estimatedCost} for ${overlappingDistanceKm} km`

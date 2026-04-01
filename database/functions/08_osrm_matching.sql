@@ -11,12 +11,11 @@
 -- =================================================================
 
 -- Enable HTTP extension for calling OSRM API
-CREATE EXTENSION IF NOT EXISTS http;
+CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
 
--- Grant permissions
-GRANT EXECUTE ON FUNCTION http_get(text) TO postgres;
-GRANT EXECUTE ON FUNCTION http_get(text) TO anon;
-GRANT EXECUTE ON FUNCTION http_get(text) TO authenticated;
+-- Grant permissions for extension schema/functions (avoid signature-specific grants)
+GRANT USAGE ON SCHEMA extensions TO postgres, anon, authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, anon, authenticated;
 
 -- =================================================================
 -- MAIN MATCHING FUNCTION
@@ -69,6 +68,26 @@ BEGIN
     END IF;
 
     -- ============================================================
+    -- 0. EMAIL VERIFICATION CHECK
+    -- ============================================================
+    -- Both host and rider must have verified emails
+    IF (SELECT email_verified FROM profiles WHERE id = template.host_id) IS NOT TRUE THEN
+        RETURN json_build_object(
+            'compatible', false,
+            'reason', 'Host email not verified',
+            'error_code', 'HOST_EMAIL_NOT_VERIFIED'
+        );
+    END IF;
+
+    IF (SELECT email_verified FROM profiles WHERE id = ride_request.rider_id) IS NOT TRUE THEN
+        RETURN json_build_object(
+            'compatible', false,
+            'reason', 'Rider email not verified',
+            'error_code', 'RIDER_EMAIL_NOT_VERIFIED'
+        );
+    END IF;
+
+    -- ============================================================
     -- 1. GENDER COMPATIBILITY CHECK
     -- ============================================================
     gender_compatible := (
@@ -97,14 +116,15 @@ BEGIN
     -- 3. CALL OSRM API - Original Route (Host: from → to)
     -- ============================================================
     BEGIN
-        SELECT (http_get(
+        SELECT (content->'routes'->0) INTO original_route
+        FROM extensions.http_get(
             format(
                 '%s/route/v1/driving/%s,%s;%s,%s?overview=false',
                 osrm_url,
                 template.from_lng, template.from_lat,
                 template.to_lng, template.to_lat
-            )
-        )->'content')::text::json->'routes'->0 INTO original_route;
+            )::varchar
+        );
 
         IF original_route IS NULL THEN
             -- Fallback to straight-line if OSRM fails
@@ -129,15 +149,16 @@ BEGIN
     -- 4. CALL OSRM API - Detour Route (Host + Rider: from → pickup → to)
     -- ============================================================
     BEGIN
-        SELECT (http_get(
+        SELECT (content->'routes'->0) INTO detour_route
+        FROM extensions.http_get(
             format(
                 '%s/route/v1/driving/%s,%s;%s,%s;%s,%s?overview=false',
                 osrm_url,
                 template.from_lng, template.from_lat,
                 ride_request.pickup_lng, ride_request.pickup_lat,
                 template.to_lng, template.to_lat
-            )
-        )->'content')::text::json->'routes'->0 INTO detour_route;
+            )::varchar
+        );
 
         IF detour_route IS NULL THEN
             -- Fallback: calculate pickup straight-line distance

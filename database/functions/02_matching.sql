@@ -80,13 +80,13 @@ BEGIN
 
     -- Call OSRM API - Original Route (Host: from → to)
     BEGIN
-        SELECT (http_get(
+        SELECT (extensions.http_get(
             format(
                 '%s/route/v1/driving/%s,%s;%s,%s?overview=false',
                 osrm_url,
                 template.from_lng, template.from_lat,
                 template.to_lng, template.to_lat
-            )
+            )::varchar
         )->'content')::text::json->'routes'->0 INTO original_route;
 
         IF original_route IS NULL THEN
@@ -108,14 +108,14 @@ BEGIN
 
     -- Call OSRM API - Detour Route (Host + Rider: from → pickup → to)
     BEGIN
-        SELECT (http_get(
+        SELECT (extensions.http_get(
             format(
                 '%s/route/v1/driving/%s,%s;%s,%s;%s,%s?overview=false',
                 osrm_url,
                 template.from_lng, template.from_lat,
                 ride_request.pickup_lng, ride_request.pickup_lat,
                 template.to_lng, template.to_lat
-            )
+            )::varchar
         )->'content')::text::json->'routes'->0 INTO detour_route;
 
         IF detour_route IS NULL THEN

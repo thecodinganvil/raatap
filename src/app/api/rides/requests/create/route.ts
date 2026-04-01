@@ -79,6 +79,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Profile coordinates missing" }, { status: 400 });
     }
 
+    if (!profile.email_verified) {
+      return NextResponse.json({ error: "Email not verified. Please verify your email to request a ride." }, { status: 403 });
+    }
+
     console.log(`[Request API] Fetched Rider coordinates from profiles table`);
 
     // 2. Fetch OSRM route geometry for rider's journey
