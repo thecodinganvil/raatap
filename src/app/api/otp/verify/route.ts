@@ -147,6 +147,23 @@ export async function POST(request: NextRequest) {
 
     console.log("[OTP Verify] Profile updated");
 
+    // Reactivate existing rides (in case they were deactivated due to unverified email)
+    console.log("[OTP Verify] Reactivating any existing rides for verified user...");
+    
+    // Reactivate ride_templates
+    await supabase
+      .from("ride_templates")
+      .update({ status: 'active', updated_at: new Date().toISOString() })
+      .eq("host_id", userId)
+      .is("status", null);
+
+    // Reactivate ride_requests
+    await supabase
+      .from("ride_requests")
+      .update({ status: 'active', updated_at: new Date().toISOString() })
+      .eq("rider_id", userId)
+      .is("status", null);
+
     // Check if rides already exist (check for active status)
     const { data: existingTemplate } = await supabase
       .from("ride_templates")
@@ -240,9 +257,15 @@ export async function POST(request: NextRequest) {
                 for (const match of matches) {
                   const { data: riderProfile } = await supabase
                     .from("profiles")
-                    .select("comfortable_with, institution")
+                    .select("comfortable_with, institution, email_verified")
                     .eq("id", match.rider_id)
                     .single();
+
+                  // Only match with verified riders
+                  if (!riderProfile?.email_verified) {
+                    console.log(`[OTP Verify] Skipping rider ${match.rider_id} - not verified`);
+                    continue;
+                  }
 
                   const score = calculateMatchScore({
                     hostFrom: { lat: profile.from_lat, lng: profile.from_lng },
@@ -374,9 +397,15 @@ export async function POST(request: NextRequest) {
 
               const { data: hostProfile } = await supabase
                 .from("profiles")
-                .select("comfortable_with, institution")
+                .select("comfortable_with, institution, email_verified")
                 .eq("id", match.host_id)
                 .single();
+
+              // Only match with verified hosts
+              if (!hostProfile?.email_verified) {
+                console.log(`[OTP Verify] Skipping host ${match.host_id} - not verified`);
+                continue;
+              }
 
               // Use OSRM-calculated rider route distance if available
               const riderJourneyDistance = routeDistanceMeters || match.rider_total_journey_meters;

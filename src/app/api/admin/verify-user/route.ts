@@ -109,6 +109,31 @@ export async function POST(req: NextRequest) {
 
       console.log("[Admin Verify] Profile updated successfully");
 
+      // Reactivate existing rides (in case they were deactivated due to unverified email)
+      console.log("[Admin Verify] Reactivating any existing rides for verified user...");
+      
+      // Reactivate ride_templates
+      const { error: reactivateTemplateError } = await supabase
+        .from("ride_templates")
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq("host_id", userId)
+        .is("status", null);
+
+      if (reactivateTemplateError) {
+        console.error("[Admin Verify] Error reactivating ride_templates:", reactivateTemplateError);
+      }
+
+      // Reactivate ride_requests
+      const { error: reactivateRequestError } = await supabase
+        .from("ride_requests")
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq("rider_id", userId)
+        .is("status", null);
+
+      if (reactivateRequestError) {
+        console.error("[Admin Verify] Error reactivating ride_requests:", reactivateRequestError);
+      }
+
       // Create ride_template if user is a host
       if (profile.prefer_hosting) {
         console.log("[Admin Verify] User is a HOST, attempting to create ride_template");
@@ -218,11 +243,17 @@ export async function POST(req: NextRequest) {
                   const suggestionsToInsert = [];
 
                   for (const match of matches) {
+                    // Check if rider is verified - only create matches for verified riders
                     const { data: riderProfile } = await supabase
                       .from("profiles")
-                      .select("comfortable_with, institution")
+                      .select("comfortable_with, institution, email_verified")
                       .eq("id", match.rider_id)
                       .single();
+
+                    if (!riderProfile?.email_verified) {
+                      console.log(`[Admin Verify] Skipping rider ${match.rider_id} - not verified`);
+                      continue;
+                    }
 
                     const score = calculateMatchScore({
                       hostFrom: { lat: profile.from_lat, lng: profile.from_lng },
@@ -367,9 +398,15 @@ export async function POST(req: NextRequest) {
               for (const match of matches) {
                 const { data: hostProfile } = await supabase
                   .from("profiles")
-                  .select("comfortable_with, institution")
+                  .select("comfortable_with, institution, email_verified")
                   .eq("id", match.host_id)
                   .single();
+
+                // Only match with verified hosts
+                if (!hostProfile?.email_verified) {
+                  console.log(`[Admin Verify] Skipping host ${match.host_id} - not verified`);
+                  continue;
+                }
 
                 const score = calculateMatchScore({
                   hostFrom: { lat: profile.from_lat, lng: profile.from_lng },

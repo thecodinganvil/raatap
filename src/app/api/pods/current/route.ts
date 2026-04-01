@@ -14,7 +14,6 @@ const supabase = createClient(
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await request.json();
-    console.log("📥 [API] /api/pods/current - userId:", userId);
 
     if (!userId) {
       return NextResponse.json(
@@ -24,7 +23,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Get host pods (pods where user is the host)
-    console.log("🔍 [API] Fetching host pods for user:", userId);
     const { data: hostPods, error: hostPodsError } = await supabase
       .from("pods")
       .select(`
@@ -69,16 +67,13 @@ export async function POST(request: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (hostPodsError) {
-      console.error("❌ [API] Error fetching host pods:", hostPodsError);
       return NextResponse.json(
         { error: hostPodsError.message },
         { status: 500 }
       );
     }
-    console.log("✅ [API] Found", hostPods?.length || 0, "host pods");
 
     // Get rider rides (rides where user is the rider)
-    console.log("🔍 [API] Fetching rider rides for user:", userId);
     const { data: riderRides, error: riderRidesError } = await supabase
       .from("pod_members")
       .select(`
@@ -123,27 +118,21 @@ export async function POST(request: NextRequest) {
       .order("joined_at", { ascending: false });
 
     if (riderRidesError) {
-      console.error("❌ [API] Error fetching rider rides:", riderRidesError);
       return NextResponse.json(
         { error: riderRidesError.message },
         { status: 500 }
       );
     }
-    console.log("✅ [API] Found", riderRides?.length || 0, "rider rides");
 
     // Filter out inactive members and recalculate seats_taken
     const processedHostPods = (hostPods || []).map((pod) => {
-      // Filter to only active members (status: 'active' or 'pending_*')
       const activeMembers = (pod.pod_members || []).filter(
         (m: any) => m.status === 'active' || m.status?.startsWith('pending_')
       );
-      
-      // Calculate actual seats taken
+
       const actualSeatsTaken = activeMembers.filter(
         (m: any) => m.status === 'active'
       ).length;
-
-      console.log(`📊 [API] Pod ${pod.id}: ${activeMembers.length} active members, ${actualSeatsTaken} seats taken (db shows ${pod.ride_template?.seats_taken})`);
 
       return {
         ...pod,
@@ -170,14 +159,10 @@ export async function POST(request: NextRequest) {
       return ride;
     });
 
-    console.log(
-      `✅ [API] Total - Host pods: ${processedHostPods.length}, Rider rides: ${processedRiderRides.length}`
-    );
-
-    // Fetch activity logs for host pods
+    // Fetch activity logs for host pods (limited to recent 10)
     const podIds = processedHostPods.map((p: any) => p.id);
     let activityLogs: any[] = [];
-    
+
     if (podIds.length > 0) {
       const { data: logs } = await supabase
         .from("activity_logs")
@@ -185,49 +170,26 @@ export async function POST(request: NextRequest) {
         .in("entity_id", podIds)
         .eq("entity_type", "pod")
         .order("log_time", { ascending: false })
-        .limit(20);
-      
-      // Transform raw logs into display-friendly format with human-readable messages
-      activityLogs = (logs || []).map((log: any) => {
-        let message = "";
-        const normalizedAction = log.action?.toLowerCase() || "";
-        
-        if (normalizedAction.includes("leave")) {
-          if (log.details?.reason === "schedule_conflict") {
-            message = "Rider left due to schedule conflict";
-          } else if (log.details?.reason === "personal_reasons") {
-            message = "Rider left for personal reasons";
-          } else {
-            message = "Rider left the pod";
-          }
-        } else if (normalizedAction.includes("dismiss") || normalizedAction.includes("remove")) {
-          if (log.details?.reason === "no_show") {
-            message = "Rider was dismissed for no-show";
-          } else if (log.details?.reason === "inappropriate_behavior") {
-            message = "Rider was dismissed for inappropriate behavior";
-          } else {
-            message = "Rider was removed from the pod";
-          }
-        } else if (normalizedAction.includes("join")) {
-          message = "New rider joined the pod";
-        } else if (normalizedAction.includes("confirm")) {
-          message = "Rider confirmed their ride";
-        } else if (normalizedAction.includes("create")) {
-          message = "Pod was created";
-        } else {
-          message = log.action || "Activity logged";
-        }
-        
-        return {
-          ...log,
-          message,
-        };
-      });
-    }
+        .limit(10);
 
-    // Log first pod data to debug
-    if (processedHostPods.length > 0) {
-      console.log("🔍 [API] First pod data:", JSON.stringify(processedHostPods[0], null, 2));
+      activityLogs = (logs || []).map((log: any) => {
+        const normalizedAction = log.action?.toLowerCase() || "";
+        let message = "";
+
+        if (normalizedAction.includes("leave")) {
+          message = log.details?.reason ? `Rider left: ${log.details.reason}` : "Rider left the pod";
+        } else if (normalizedAction.includes("dismiss") || normalizedAction.includes("remove")) {
+          message = log.details?.reason ? `Rider dismissed: ${log.details.reason}` : "Rider was removed";
+        } else if (normalizedAction.includes("join")) {
+          message = "New rider joined";
+        } else if (normalizedAction.includes("confirm")) {
+          message = "Ride confirmed";
+        } else {
+          message = log.action || "Activity";
+        }
+
+        return { ...log, message };
+      });
     }
 
     return NextResponse.json({
@@ -236,7 +198,7 @@ export async function POST(request: NextRequest) {
       activity_logs: activityLogs,
     });
   } catch (error) {
-    console.error("❌ [API] Unexpected error:", error);
+    console.error("Unexpected error in /api/pods/current:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

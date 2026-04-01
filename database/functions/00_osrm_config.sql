@@ -31,15 +31,11 @@
 -- ----------------------------------------------------------------
 -- Note: This may already be enabled in Supabase
 
-CREATE EXTENSION IF NOT EXISTS http;
+CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
 
 -- Grant permissions for all roles
-GRANT EXECUTE ON FUNCTION http_get(text) TO postgres;
-GRANT EXECUTE ON FUNCTION http_get(text) TO anon;
-GRANT EXECUTE ON FUNCTION http_get(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION http_post(text, text, text) TO postgres;
-GRANT EXECUTE ON FUNCTION http_post(text, text, text) TO anon;
-GRANT EXECUTE ON FUNCTION http_post(text, text, text) TO authenticated;
+GRANT USAGE ON SCHEMA extensions TO postgres, anon, authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, anon, authenticated;
 
 
 -- ----------------------------------------------------------------
@@ -50,10 +46,10 @@ GRANT EXECUTE ON FUNCTION http_post(text, text, text) TO authenticated;
 -- Test with a simple route (Hyderabad CBIT to MGIT)
 /*
 SELECT 
-    (http_get(
+    (extensions.http_get(
         'https://router.project-osrm.org/route/v1/driving/78.3194368,17.3919735;78.3220892,17.391051?overview=false'
     )->'content')::text::json->'routes'->0->>'distance' as distance_meters,
-    (http_get(
+    (extensions.http_get(
         'https://router.project-osrm.org/route/v1/driving/78.3194368,17.3919735;78.3220892,17.391051?overview=false'
     )->'content')::text::json->'routes'->0->>'duration' as duration_seconds;
 */
