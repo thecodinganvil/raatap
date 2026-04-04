@@ -167,7 +167,7 @@ BEGIN
     LOOP
         SELECT id INTO existing_match FROM match_suggestions
         WHERE ride_template_id = template_id AND ride_request_id = request.id
-        AND status IN ('pending', 'shown', 'accepted');
+        AND status NOT IN ('rejected', 'skipped', 'expired');
 
         IF existing_match IS NULL THEN
             match_result := calculate_route_match_score(template_id, request.id);
@@ -185,7 +185,7 @@ BEGIN
                     (match_result->>'pickup_distance_meters')::INTEGER,
                     (match_result->>'pickup_distance_meters')::INTEGER,
                     (match_result->>'overlapping_distance_meters')::NUMERIC,
-                    'pending'
+                    'pending_host_approval'
                 );
                 suggestions_created := suggestions_created + 1;
             END IF;
@@ -216,7 +216,7 @@ BEGIN
     LOOP
         SELECT id INTO existing_match FROM match_suggestions
         WHERE ride_template_id = template.id AND ride_request_id = request_id
-        AND status IN ('pending', 'shown', 'accepted');
+        AND status NOT IN ('rejected', 'skipped', 'expired');
 
         IF existing_match IS NULL THEN
             match_result := calculate_route_match_score(template.id, request_id);
@@ -234,7 +234,7 @@ BEGIN
                     (match_result->>'pickup_distance_meters')::INTEGER,
                     (match_result->>'pickup_distance_meters')::INTEGER,
                     (match_result->>'overlapping_distance_meters')::NUMERIC,
-                    'pending'
+                    'pending_host_approval'
                 );
                 suggestions_created := suggestions_created + 1;
             END IF;
@@ -251,7 +251,7 @@ $$;
 -- ================================================================
 
 -- Delete old pending matches
-DELETE FROM match_suggestions WHERE status IN ('pending', 'shown');
+DELETE FROM match_suggestions WHERE status IN ('pending', 'shown', 'pending_host_approval', 'pending_rider_approval');
 
 -- Regenerate matches for all active templates
 SELECT regenerate_matches_for_template(id) FROM ride_templates WHERE status = 'active';
