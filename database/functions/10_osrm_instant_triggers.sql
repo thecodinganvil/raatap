@@ -77,7 +77,75 @@ FOR EACH ROW
 EXECUTE FUNCTION trigger_auto_match_request();
 
 COMMENT ON TRIGGER on_ride_request_created_auto_match ON ride_requests IS
-'Automatically generates match suggestions when a new ride request is created';
+'Automates generates match suggestions when a new ride request is created';
+
+
+-- ================================================================
+-- 3. Trigger: Auto-match when ride template status changes to 'active'
+-- ================================================================
+-- When a ride template is reactivated (e.g., user gets verified), generate matches
+
+CREATE OR REPLACE FUNCTION trigger_auto_match_template_on_reactivate()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    matches_found INTEGER;
+BEGIN
+    -- Only generate matches when status changes TO 'active' from something else
+    IF NEW.status = 'active' AND OLD.status != 'active' THEN
+        matches_found := generate_match_suggestions_for_ride_template(NEW.id);
+        RAISE NOTICE 'Auto-generated % matches for reactivated ride template %', matches_found, NEW.id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_ride_template_reactivated_auto_match ON ride_templates;
+
+CREATE TRIGGER on_ride_template_reactivated_auto_match
+AFTER UPDATE ON ride_templates
+FOR EACH ROW
+EXECUTE FUNCTION trigger_auto_match_template_on_reactivate();
+
+COMMENT ON TRIGGER on_ride_template_reactivated_auto_match ON ride_templates IS
+'Automatically generates match suggestions when a ride template is reactivated';
+
+
+-- ================================================================
+-- 4. Trigger: Auto-match when ride request status changes to 'active'
+-- ================================================================
+-- When a ride request is reactivated (e.g., user gets verified), generate matches
+
+CREATE OR REPLACE FUNCTION trigger_auto_match_request_on_reactivate()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    matches_found INTEGER;
+BEGIN
+    -- Only generate matches when status changes TO 'active' from something else
+    IF NEW.status = 'active' AND OLD.status != 'active' THEN
+        matches_found := generate_match_suggestions_for_ride_request(NEW.id);
+        RAISE NOTICE 'Auto-generated % matches for reactivated ride request %', matches_found, NEW.id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_ride_request_reactivated_auto_match ON ride_requests;
+
+CREATE TRIGGER on_ride_request_reactivated_auto_match
+AFTER UPDATE ON ride_requests
+FOR EACH ROW
+EXECUTE FUNCTION trigger_auto_match_request_on_reactivate();
+
+COMMENT ON TRIGGER on_ride_request_reactivated_auto_match ON ride_requests IS
+'Automatically generates match suggestions when a ride request is reactivated';
 
 
 -- ================================================================

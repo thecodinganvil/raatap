@@ -41,37 +41,41 @@ BEGIN
         FROM match_suggestions
         WHERE ride_template_id = template_id
         AND ride_request_id = request.id
-        AND status IN ('pending', 'shown', 'accepted');
+        AND status NOT IN ('rejected', 'skipped', 'expired');
 
         IF existing_match IS NULL THEN
             -- Calculate match using OSRM-based function
             match_result := calculate_route_match_score(template_id, request.id);
 
             IF (match_result->>'compatible')::BOOLEAN = true THEN
-                -- Create match suggestion
-                INSERT INTO match_suggestions (
-                    ride_template_id,
-                    ride_request_id,
-                    route_match_score,
-                    schedule_match_score,
-                    overall_score,
-                    detour_distance_meters,
-                    pickup_distance_meters,
-                    overlapping_distance_meters,
-                    status
-                ) VALUES (
-                    template_id,
-                    request.id,
-                    COALESCE((match_result->>'match_score')::NUMERIC, 0),
-                    0,
-                    COALESCE((match_result->>'match_score')::NUMERIC, 0),
-                    COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
-                    COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
-                    COALESCE((match_result->>'original_distance_meters')::NUMERIC, 0),
-                    'pending'
-                );
-
-                suggestions_created := suggestions_created + 1;
+                -- Create match suggestion (handle unique constraint violation)
+                BEGIN
+                    INSERT INTO match_suggestions (
+                        ride_template_id,
+                        ride_request_id,
+                        route_match_score,
+                        schedule_match_score,
+                        overall_score,
+                        detour_distance_meters,
+                        pickup_distance_meters,
+                        overlapping_distance_meters,
+                        status
+                    ) VALUES (
+                        template_id,
+                        request.id,
+                        COALESCE((match_result->>'match_score')::NUMERIC, 0),
+                        0,
+                        COALESCE((match_result->>'match_score')::NUMERIC, 0),
+                        COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
+                        COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
+                        COALESCE((match_result->>'original_distance_meters')::NUMERIC, 0),
+                        'pending_host_approval'
+                    );
+                    suggestions_created := suggestions_created + 1;
+                EXCEPTION WHEN unique_violation THEN
+                    -- Match already exists, skip silently
+                    NULL;
+                END;
             END IF;
         END IF;
     END LOOP;
@@ -121,37 +125,41 @@ BEGIN
         FROM match_suggestions
         WHERE ride_template_id = template.id
         AND ride_request_id = request_id
-        AND status IN ('pending', 'shown', 'accepted');
+        AND status NOT IN ('rejected', 'skipped', 'expired');
 
         IF existing_match IS NULL THEN
             -- Calculate match using OSRM-based function
             match_result := calculate_route_match_score(template.id, request_id);
 
             IF (match_result->>'compatible')::BOOLEAN = true THEN
-                -- Create match suggestion
-                INSERT INTO match_suggestions (
-                    ride_template_id,
-                    ride_request_id,
-                    route_match_score,
-                    schedule_match_score,
-                    overall_score,
-                    detour_distance_meters,
-                    pickup_distance_meters,
-                    overlapping_distance_meters,
-                    status
-                ) VALUES (
-                    template.id,
-                    request_id,
-                    COALESCE((match_result->>'match_score')::NUMERIC, 0),
-                    0,
-                    COALESCE((match_result->>'match_score')::NUMERIC, 0),
-                    COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
-                    COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
-                    COALESCE((match_result->>'original_distance_meters')::NUMERIC, 0),
-                    'pending'
-                );
-
-                suggestions_created := suggestions_created + 1;
+                -- Create match suggestion (handle unique constraint violation)
+                BEGIN
+                    INSERT INTO match_suggestions (
+                        ride_template_id,
+                        ride_request_id,
+                        route_match_score,
+                        schedule_match_score,
+                        overall_score,
+                        detour_distance_meters,
+                        pickup_distance_meters,
+                        overlapping_distance_meters,
+                        status
+                    ) VALUES (
+                        template.id,
+                        request_id,
+                        COALESCE((match_result->>'match_score')::NUMERIC, 0),
+                        0,
+                        COALESCE((match_result->>'match_score')::NUMERIC, 0),
+                        COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
+                        COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
+                        COALESCE((match_result->>'original_distance_meters')::NUMERIC, 0),
+                        'pending_host_approval'
+                    );
+                    suggestions_created := suggestions_created + 1;
+                EXCEPTION WHEN unique_violation THEN
+                    -- Match already exists, skip silently
+                    NULL;
+                END;
             END IF;
         END IF;
     END LOOP;
@@ -178,7 +186,7 @@ BEGIN
     -- Delete old pending matches for this template
     DELETE FROM match_suggestions
     WHERE ride_template_id = template_id
-    AND status IN ('pending', 'shown');
+    AND status IN ('pending', 'shown', 'pending_host_approval', 'pending_rider_approval');
 
     -- Regenerate matches
     matches_found := generate_match_suggestions_for_ride_template(template_id);
@@ -204,7 +212,7 @@ BEGIN
     -- Delete old pending matches for this request
     DELETE FROM match_suggestions
     WHERE ride_request_id = request_id
-    AND status IN ('pending', 'shown');
+    AND status IN ('pending', 'shown', 'pending_host_approval', 'pending_rider_approval');
 
     -- Regenerate matches
     matches_found := generate_match_suggestions_for_ride_request(request_id);

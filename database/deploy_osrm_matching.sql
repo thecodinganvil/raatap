@@ -281,27 +281,31 @@ BEGIN
         FROM match_suggestions
         WHERE ride_template_id = template_id
         AND ride_request_id = request.id
-        AND status IN ('pending', 'shown', 'accepted');
+        AND status NOT IN ('rejected', 'skipped', 'expired');
 
         IF existing_match IS NULL THEN
             match_result := calculate_route_match_score(template_id, request.id);
 
             IF (match_result->>'compatible')::BOOLEAN = true THEN
-                INSERT INTO match_suggestions (
-                    ride_template_id, ride_request_id,
-                    route_match_score, schedule_match_score, overall_score,
-                    detour_distance_meters, pickup_distance_meters,
-                    overlapping_distance_meters, status
-                ) VALUES (
-                    template_id, request.id,
-                    COALESCE((match_result->>'match_score')::NUMERIC, 0), 0,
-                    COALESCE((match_result->>'match_score')::NUMERIC, 0),
-                    COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
-                    COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
-                    COALESCE((match_result->>'original_distance_meters')::NUMERIC, 0),
-                    'pending'
-                );
-                suggestions_created := suggestions_created + 1;
+                BEGIN
+                    INSERT INTO match_suggestions (
+                        ride_template_id, ride_request_id,
+                        route_match_score, schedule_match_score, overall_score,
+                        detour_distance_meters, pickup_distance_meters,
+                        overlapping_distance_meters, status
+                    ) VALUES (
+                        template_id, request.id,
+                        COALESCE((match_result->>'match_score')::NUMERIC, 0), 0,
+                        COALESCE((match_result->>'match_score')::NUMERIC, 0),
+                        COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
+                        COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
+                        COALESCE((match_result->>'original_distance_meters')::NUMERIC, 0),
+                        'pending_host_approval'
+                    );
+                    suggestions_created := suggestions_created + 1;
+                EXCEPTION WHEN unique_violation THEN
+                    NULL;
+                END;
             END IF;
         END IF;
     END LOOP;
@@ -334,27 +338,31 @@ BEGIN
         FROM match_suggestions
         WHERE ride_template_id = template.id
         AND ride_request_id = request_id
-        AND status IN ('pending', 'shown', 'accepted');
+        AND status NOT IN ('rejected', 'skipped', 'expired');
 
         IF existing_match IS NULL THEN
             match_result := calculate_route_match_score(template.id, request_id);
 
             IF (match_result->>'compatible')::BOOLEAN = true THEN
-                INSERT INTO match_suggestions (
-                    ride_template_id, ride_request_id,
-                    route_match_score, schedule_match_score, overall_score,
-                    detour_distance_meters, pickup_distance_meters,
-                    overlapping_distance_meters, status
-                ) VALUES (
-                    template.id, request_id,
-                    COALESCE((match_result->>'match_score')::NUMERIC, 0), 0,
-                    COALESCE((match_result->>'match_score')::NUMERIC, 0),
-                    COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
-                    COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
-                    COALESCE((match_result->>'original_distance_meters')::NUMERIC, 0),
-                    'pending'
-                );
-                suggestions_created := suggestions_created + 1;
+                BEGIN
+                    INSERT INTO match_suggestions (
+                        ride_template_id, ride_request_id,
+                        route_match_score, schedule_match_score, overall_score,
+                        detour_distance_meters, pickup_distance_meters,
+                        overlapping_distance_meters, status
+                    ) VALUES (
+                        template.id, request_id,
+                        COALESCE((match_result->>'match_score')::NUMERIC, 0), 0,
+                        COALESCE((match_result->>'match_score')::NUMERIC, 0),
+                        COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
+                        COALESCE((match_result->>'detour_added_meters')::INTEGER, 0),
+                        COALESCE((match_result->>'original_distance_meters')::NUMERIC, 0),
+                        'pending_host_approval'
+                    );
+                    suggestions_created := suggestions_created + 1;
+                EXCEPTION WHEN unique_violation THEN
+                    NULL;
+                END;
             END IF;
         END IF;
     END LOOP;
@@ -370,7 +378,7 @@ AS $$
 DECLARE matches_found INTEGER;
 BEGIN
     DELETE FROM match_suggestions
-    WHERE ride_template_id = template_id AND status IN ('pending', 'shown');
+    WHERE ride_template_id = template_id AND status IN ('pending', 'shown', 'pending_host_approval', 'pending_rider_approval');
     
     matches_found := generate_match_suggestions_for_ride_template(template_id);
     RAISE NOTICE 'Regenerated % matches for template %', matches_found, template_id;
@@ -385,7 +393,7 @@ AS $$
 DECLARE matches_found INTEGER;
 BEGIN
     DELETE FROM match_suggestions
-    WHERE ride_request_id = request_id AND status IN ('pending', 'shown');
+    WHERE ride_request_id = request_id AND status IN ('pending', 'shown', 'pending_host_approval', 'pending_rider_approval');
     
     matches_found := generate_match_suggestions_for_ride_request(request_id);
     RAISE NOTICE 'Regenerated % matches for request %', matches_found, request_id;
@@ -481,6 +489,8 @@ BEGIN
     RAISE NOTICE '  - generate_all_matches()';
     RAISE NOTICE '  - trigger_auto_match_template()';
     RAISE NOTICE '  - trigger_auto_match_request()';
+    RAISE NOTICE '  - trigger_auto_match_template_on_reactivate()';
+    RAISE NOTICE '  - trigger_auto_match_request_on_reactivate()';
     RAISE NOTICE '';
     RAISE NOTICE 'Matching criteria:';
     RAISE NOTICE '  - Detour ≤ 5km (road distance via OSRM)';

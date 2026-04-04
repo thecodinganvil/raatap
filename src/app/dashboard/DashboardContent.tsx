@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
@@ -74,6 +74,7 @@ export default function DashboardContent() {
   const [confirmedPods, setConfirmedPods] = useState<any>(null); // { host_pods: [], rider_rides: [] }
   const [loadingPods, setLoadingPods] = useState(false);
   const [podsLoadError, setPodsLoadError] = useState(false);
+  const podsFetchInFlightRef = useRef(false);
 
   // Notification/Toast state
   const [notification, setNotification] = useState<{
@@ -427,13 +428,22 @@ export default function DashboardContent() {
   };
 
   const fetchConfirmedPods = async (userId: string) => {
+    if (podsFetchInFlightRef.current) {
+      return confirmedPods || { host_pods: [], rider_rides: [] };
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
     try {
+      podsFetchInFlightRef.current = true;
       setLoadingPods(true);
       setPodsLoadError(false);
       const response = await fetch("/api/pods/current", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),
+        signal: controller.signal,
       });
       
       if (!response.ok) {
@@ -441,7 +451,6 @@ export default function DashboardContent() {
         console.error("API Error:", response.status, errorData);
         setPodsLoadError(true);
         setConfirmedPods({ host_pods: [], rider_rides: [] });
-        setLoadingPods(false);
         return { host_pods: [], rider_rides: [] };
       }
       
@@ -456,14 +465,20 @@ export default function DashboardContent() {
         setConfirmedPods(data);
       }
       
-      setLoadingPods(false);
       return data;
     } catch (error) {
-      console.error("Error fetching pods:", error);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        console.error("Error fetching pods: request timed out after 12 seconds");
+      } else {
+        console.error("Error fetching pods:", error);
+      }
       setPodsLoadError(true);
       setConfirmedPods({ host_pods: [], rider_rides: [] });
-      setLoadingPods(false);
       return { host_pods: [], rider_rides: [] };
+    } finally {
+      clearTimeout(timeoutId);
+      podsFetchInFlightRef.current = false;
+      setLoadingPods(false);
     }
   };
 
@@ -516,6 +531,14 @@ export default function DashboardContent() {
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured()) return;
 
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const schedulePodsRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        fetchConfirmedPods(user.id);
+      }, 400);
+    };
+
     const channel = supabase
       .channel('pod_members_changes')
       .on(
@@ -524,10 +547,10 @@ export default function DashboardContent() {
           event: '*',
           schema: 'public',
           table: 'pod_members',
+          filter: `rider_id=eq.${user.id}`,
         },
-        (payload) => {
-          console.log('📡 [Dashboard] Pod members changed:', payload);
-          fetchConfirmedPods(user.id);
+        () => {
+          schedulePodsRefresh();
         }
       )
       .on(
@@ -536,15 +559,16 @@ export default function DashboardContent() {
           event: '*',
           schema: 'public',
           table: 'pods',
+          filter: `host_id=eq.${user.id}`,
         },
-        (payload) => {
-          console.log('📡 [Dashboard] Pods changed:', payload);
-          fetchConfirmedPods(user.id);
+        () => {
+          schedulePodsRefresh();
         }
       )
       .subscribe();
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
       supabase.removeChannel(channel);
     };
   }, [user?.id]);
@@ -583,6 +607,7 @@ export default function DashboardContent() {
         if (!isOAuthUser && !passwordSet) {
           // User hasn't set their password yet — redirect to set-password
           console.log("User hasn't set password, redirecting to /set-password");
+          setLoading(false);
           router.push("/set-password");
           return;
         }
@@ -626,6 +651,7 @@ export default function DashboardContent() {
 
         if (!fallbackIsOAuth && !fallbackPasswordSet) {
           console.log("Fallback: User hasn't set password, redirecting to /set-password");
+          setLoading(false);
           router.push("/set-password");
           return;
         }
